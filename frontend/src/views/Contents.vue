@@ -98,11 +98,31 @@
             <button class="summary-cell" type="button" @click="showDetail(row)">{{ row.hook || '暂无钩子' }}</button>
           </template>
         </el-table-column>
-        <el-table-column prop="scene" label="场景" width="150" />
-        <el-table-column prop="target_group" label="人群" width="150" />
-        <el-table-column prop="structure" label="内容结构" min-width="210" />
-        <el-table-column prop="conversion_point" label="转化点" min-width="210" />
-        <el-table-column prop="remix_angles" label="二创角度" min-width="180" />
+        <el-table-column label="场景" min-width="170">
+          <template #default="{ row }">
+            <div class="multi-line-cell">{{ row.scene || '暂无场景' }}</div>
+          </template>
+        </el-table-column>
+        <el-table-column label="人群" min-width="170">
+          <template #default="{ row }">
+            <div class="multi-line-cell">{{ row.target_group || '暂无人群' }}</div>
+          </template>
+        </el-table-column>
+        <el-table-column label="内容结构" min-width="230">
+          <template #default="{ row }">
+            <div class="multi-line-cell">{{ row.structure || '暂无内容结构' }}</div>
+          </template>
+        </el-table-column>
+        <el-table-column label="转化点" min-width="230">
+          <template #default="{ row }">
+            <div class="multi-line-cell">{{ row.conversion_point || '暂无转化点' }}</div>
+          </template>
+        </el-table-column>
+        <el-table-column label="二创角度" min-width="210">
+          <template #default="{ row }">
+            <div class="multi-line-cell">{{ row.remix_angles || '暂无二创角度' }}</div>
+          </template>
+        </el-table-column>
         <el-table-column prop="analyst" label="拆解人" width="150" />
         <el-table-column label="操作" width="240" fixed="right">
           <template #default="{ row }">
@@ -312,4 +332,14 @@ onMounted(loadList)
 .detail-head strong { font-size:20px; }
 .detail-panel h3 { margin:22px 0 10px; font-size:16px; }
 .detail-content { white-space:pre-wrap; word-break:break-word; line-height:1.8; background:#f6f8fb; border:1px solid rgba(20,33,61,.08); border-radius:14px; padding:16px; color:#334155; }
+.multi-line-cell {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  white-space: normal;
+  line-height: 1.6;
+  max-height: calc(1.6em * 3);
+  color: #5f6673;
+}
 </style>

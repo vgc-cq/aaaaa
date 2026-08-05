@@ -12,11 +12,31 @@
         <el-table-column label="复盘周期" width="170">
           <template #default="{ row }"><button class="summary-cell" type="button" @click="showDetail(row)">{{ row.review_period || '未命名周期' }}</button></template>
         </el-table-column>
-        <el-table-column prop="product_performance" label="商品表现" min-width="220" />
-        <el-table-column prop="content_performance" label="内容表现" min-width="220" />
-        <el-table-column prop="ad_performance" label="投流表现" min-width="220" />
-        <el-table-column prop="problem_analysis" label="问题归因" min-width="240" />
-        <el-table-column prop="next_action" label="优化动作" min-width="240" />
+        <el-table-column label="商品表现" min-width="220">
+          <template #default="{ row }">
+            <div class="multi-line-cell">{{ row.product_performance || '暂无商品表现' }}</div>
+          </template>
+        </el-table-column>
+        <el-table-column label="内容表现" min-width="220">
+          <template #default="{ row }">
+            <div class="multi-line-cell">{{ row.content_performance || '暂无内容表现' }}</div>
+          </template>
+        </el-table-column>
+        <el-table-column label="投流表现" min-width="220">
+          <template #default="{ row }">
+            <div class="multi-line-cell">{{ row.ad_performance || '暂无投流表现' }}</div>
+          </template>
+        </el-table-column>
+        <el-table-column label="问题归因" min-width="240">
+          <template #default="{ row }">
+            <div class="multi-line-cell">{{ row.problem_analysis || '暂无问题归因' }}</div>
+          </template>
+        </el-table-column>
+        <el-table-column label="优化动作" min-width="240">
+          <template #default="{ row }">
+            <div class="multi-line-cell">{{ row.next_action || '暂无优化动作' }}</div>
+          </template>
+        </el-table-column>
         <el-table-column prop="owner" label="负责人" width="110" />
         <el-table-column label="操作" width="240" fixed="right">
           <template #default="{ row }"><div class="action-row"><el-button class="action-btn" size="small" @click="showDetail(row)">详情</el-button><el-button class="action-btn" size="small" @click="showDialog(row)">编辑</el-button><el-button class="action-btn" size="small" @click="handleDelete(row.id)">删除</el-button></div></template>
@@ -87,4 +107,14 @@ onMounted(loadList)
 .detail-head strong { font-size:20px; }
 .detail-panel h3 { margin:22px 0 10px; font-size:16px; }
 .detail-content { white-space:pre-wrap; word-break:break-word; line-height:1.8; background:#f6f8fb; border:1px solid rgba(20,33,61,.08); border-radius:14px; padding:16px; color:#334155; }
+.multi-line-cell {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  white-space: normal;
+  line-height: 1.6;
+  max-height: calc(1.6em * 3);
+  color: #5f6673;
+}
 </style>

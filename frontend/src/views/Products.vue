@@ -33,7 +33,11 @@
           </template>
         </el-table-column>
         <el-table-column prop="owner" label="负责人" width="80" />
-        <el-table-column prop="selling_points" label="卖点" />
+        <el-table-column label="卖点" min-width="220">
+          <template #default="{ row }">
+            <div class="multi-line-cell">{{ row.selling_points || '暂无卖点' }}</div>
+          </template>
+        </el-table-column>
         <el-table-column label="操作" width="240" fixed="right">
           <template #default="{ row }">
             <div class="action-row">
@@ -337,6 +341,16 @@ onMounted(loadList)
 .detail-head strong { font-size:20px; }
 .detail-panel h3 { margin:22px 0 10px; font-size:16px; }
 .detail-content { white-space:pre-wrap; word-break:break-word; line-height:1.8; background:#f6f8fb; border:1px solid rgba(20,33,61,.08); border-radius:14px; padding:16px; color:#334155; }
+.multi-line-cell {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  white-space: normal;
+  line-height: 1.6;
+  max-height: calc(1.6em * 3);
+  color: #5f6673;
+}
 .import-box {
   margin-bottom: 18px;
   padding: 14px;

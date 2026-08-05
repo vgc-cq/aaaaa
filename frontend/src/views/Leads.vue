@@ -19,7 +19,11 @@
           <template #default="{ row }"><el-tag :type="row.follow_status === '已成交' || row.follow_status === '已加微' ? 'success' : 'warning'" size="small">{{ row.follow_status }}</el-tag></template>
         </el-table-column>
         <el-table-column prop="wechat_added" label="加微" width="80" />
-        <el-table-column prop="script_template" label="话术模板" min-width="260" />
+        <el-table-column label="话术模板" min-width="260">
+          <template #default="{ row }">
+            <div class="multi-line-cell">{{ row.script_template || '暂无话术模板' }}</div>
+          </template>
+        </el-table-column>
         <el-table-column prop="owner" label="负责人" width="100" />
         <el-table-column label="操作" width="240" fixed="right">
           <template #default="{ row }"><div class="action-row"><el-button class="action-btn" size="small" @click="showDetail(row)">详情</el-button><el-button class="action-btn" size="small" @click="showDialog(row)">编辑</el-button><el-button class="action-btn" size="small" @click="handleDelete(row.id)">删除</el-button></div></template>
@@ -86,4 +90,14 @@ onMounted(loadList)
 .detail-head strong { font-size:20px; }
 .detail-panel h3 { margin:22px 0 10px; font-size:16px; }
 .detail-content { white-space:pre-wrap; word-break:break-word; line-height:1.8; background:#f6f8fb; border:1px solid rgba(20,33,61,.08); border-radius:14px; padding:16px; color:#334155; }
+.multi-line-cell {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  white-space: normal;
+  line-height: 1.6;
+  max-height: calc(1.6em * 3);
+  color: #5f6673;
+}
 </style>

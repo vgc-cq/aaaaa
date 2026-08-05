@@ -15,9 +15,21 @@
             <button class="summary-cell" type="button" @click="showDetail(row)">{{ row.scene_desc || '暂无画面描述' }}</button>
           </template>
         </el-table-column>
-        <el-table-column prop="voiceover" label="旁白" min-width="220" />
-        <el-table-column prop="subtitle" label="字幕" min-width="180" />
-        <el-table-column prop="camera_move" label="镜头运动" width="150" />
+        <el-table-column label="旁白" min-width="220">
+          <template #default="{ row }">
+            <div class="multi-line-cell">{{ row.voiceover || '暂无旁白' }}</div>
+          </template>
+        </el-table-column>
+        <el-table-column label="字幕" min-width="180">
+          <template #default="{ row }">
+            <div class="multi-line-cell">{{ row.subtitle || '暂无字幕' }}</div>
+          </template>
+        </el-table-column>
+        <el-table-column label="镜头运动" width="150">
+          <template #default="{ row }">
+            <div class="multi-line-cell">{{ row.camera_move || '暂无镜头运动' }}</div>
+          </template>
+        </el-table-column>
         <el-table-column prop="review_status" label="审核状态" width="120">
           <template #default="{ row }">
             <el-tag :type="row.review_status === '已通过' ? 'success' : row.review_status === '已驳回' ? 'danger' : 'warning'" size="small">
@@ -156,6 +168,16 @@ onMounted(loadList)
 .table-card { margin-top:20px; }
 .summary-cell { width:100%; display:block; border:0; background:transparent; color:#5f6673; text-align:left; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font:inherit; }
 .summary-cell:hover { color:#2454ff; text-decoration:underline; }
+.multi-line-cell {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  white-space: normal;
+  line-height: 1.6;
+  max-height: calc(1.6em * 3);
+  color: #5f6673;
+}
 .action-row { display:flex; align-items:center; gap:10px; flex-wrap:nowrap; white-space:nowrap; }
 .action-row :deep(.el-button) { margin-left:0; }
 .action-btn { color:#334155; border-color:#d8e0ea; background:#fff; }

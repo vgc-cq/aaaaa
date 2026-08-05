@@ -21,12 +21,12 @@
         <el-table-column prop="applicable_scene" label="适用场景" width="150" />
         <el-table-column label="内容摘要" min-width="320">
           <template #default="{ row }">
-            <button class="summary-cell" type="button" @click="showDetail(row)">{{ row.content_summary || '暂无内容' }}</button>
+            <div class="multi-line-cell summary-click" @click="showDetail(row)">{{ row.content_summary || '暂无内容' }}</div>
           </template>
         </el-table-column>
         <el-table-column prop="prompt_version" label="版本" width="90" />
         <el-table-column label="使用效果" width="150">
-          <template #default="{ row }"><span class="plain-ellipsis">{{ row.usage_effect || '-' }}</span></template>
+          <template #default="{ row }"><div class="multi-line-cell">{{ row.usage_effect || '-' }}</div></template>
         </el-table-column>
         <el-table-column prop="updater" label="更新人" width="90" />
         <el-table-column label="操作" width="240" fixed="right">
@@ -160,6 +160,17 @@ onMounted(() => { loadList(); loadCategories() })
 }
 .summary-cell:hover { color: #2454ff; text-decoration: underline; }
 .plain-ellipsis { display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.multi-line-cell {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  white-space: normal;
+  line-height: 1.6;
+  max-height: calc(1.6em * 3);
+  color: #5f6673;
+}
+.summary-click { cursor:pointer; }
 .detail-panel { padding-right: 6px; }
 .detail-head { display:flex; align-items:center; gap:12px; margin-bottom:16px; }
 .detail-head strong { font-size:20px; }

@@ -12,7 +12,11 @@
         <el-table-column label="计划名称" min-width="220">
           <template #default="{ row }"><button class="summary-cell" type="button" @click="showDetail(row)">{{ row.plan_name || '未命名计划' }}</button></template>
         </el-table-column>
-        <el-table-column prop="content_direction" label="内容方向" min-width="170" />
+        <el-table-column label="内容方向" min-width="170">
+          <template #default="{ row }">
+            <div class="multi-line-cell">{{ row.content_direction || '暂无内容方向' }}</div>
+          </template>
+        </el-table-column>
         <el-table-column prop="play_count" label="播放量" width="90" />
         <el-table-column prop="spend" label="消耗" width="80" />
         <el-table-column prop="cart_clicks" label="加购" width="80" />
@@ -21,7 +25,11 @@
         <el-table-column prop="roi" label="ROI" width="80">
           <template #default="{ row }"><el-tag :type="row.roi >= 3 ? 'success' : row.roi >= 1 ? 'warning' : 'danger'" size="small">{{ row.roi }}</el-tag></template>
         </el-table-column>
-        <el-table-column prop="review_suggestion" label="复盘建议" min-width="260" />
+        <el-table-column label="复盘建议" min-width="260">
+          <template #default="{ row }">
+            <div class="multi-line-cell">{{ row.review_suggestion || '暂无复盘建议' }}</div>
+          </template>
+        </el-table-column>
         <el-table-column prop="priority" label="优先级" width="90"><template #default="{ row }"><el-tag :type="row.priority === 'P0' ? 'danger' : row.priority === 'P1' ? 'warning' : 'info'" size="small">{{ row.priority }}</el-tag></template></el-table-column>
         <el-table-column label="操作" width="240" fixed="right">
           <template #default="{ row }"><div class="action-row"><el-button class="action-btn" size="small" @click="showDetail(row)">详情</el-button><el-button class="action-btn" size="small" @click="showDialog(row)">编辑</el-button><el-button class="action-btn" size="small" @click="handleDelete(row.id)">删除</el-button></div></template>
@@ -96,4 +104,14 @@ onMounted(loadList)
 .detail-head strong { font-size:20px; }
 .detail-panel h3 { margin:22px 0 10px; font-size:16px; }
 .detail-content { white-space:pre-wrap; word-break:break-word; line-height:1.8; background:#f6f8fb; border:1px solid rgba(20,33,61,.08); border-radius:14px; padding:16px; color:#334155; }
+.multi-line-cell {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  white-space: normal;
+  line-height: 1.6;
+  max-height: calc(1.6em * 3);
+  color: #5f6673;
+}
 </style>
