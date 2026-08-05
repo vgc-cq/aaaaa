@@ -13,7 +13,7 @@ def list_contents(skip: int = 0, limit: int = 500, product_id: int = None, db: S
     query = db.query(Content)
     if product_id:
         query = query.filter(Content.product_id == product_id)
-    return query.order_by(Content.id.desc()).offset(skip).limit(limit).all()
+    return query.order_by(Content.id.asc()).offset(skip).limit(limit).all()
 
 
 @router.get("/{content_id}", response_model=ContentOut)

@@ -10,7 +10,7 @@ router = APIRouter()
 
 @router.get("/", response_model=List[AdDataOut])
 def list_ad_data(skip: int = 0, limit: int = 500, db: Session = Depends(get_db)):
-    return db.query(AdData).order_by(AdData.id.desc()).offset(skip).limit(limit).all()
+    return db.query(AdData).order_by(AdData.id.asc()).offset(skip).limit(limit).all()
 
 
 @router.get("/{ad_id}", response_model=AdDataOut)

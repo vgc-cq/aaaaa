@@ -10,7 +10,7 @@ router = APIRouter()
 
 @router.get("/", response_model=List[ReviewOut])
 def list_reviews(skip: int = 0, limit: int = 500, db: Session = Depends(get_db)):
-    return db.query(Review).order_by(Review.id.desc()).offset(skip).limit(limit).all()
+    return db.query(Review).order_by(Review.id.asc()).offset(skip).limit(limit).all()
 
 
 @router.get("/{review_id}", response_model=ReviewOut)

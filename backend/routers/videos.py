@@ -13,7 +13,7 @@ def list_videos(skip: int = 0, limit: int = 500, publish_status: str = None, db:
     query = db.query(Video)
     if publish_status:
         query = query.filter(Video.publish_status == publish_status)
-    return query.order_by(Video.id.desc()).offset(skip).limit(limit).all()
+    return query.order_by(Video.id.asc()).offset(skip).limit(limit).all()
 
 
 @router.get("/{video_id}", response_model=VideoOut)

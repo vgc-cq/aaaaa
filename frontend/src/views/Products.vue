@@ -1,13 +1,22 @@
-﻿<template>
+<template>
   <div>
     <el-card class="table-card">
       <template #header>
         <div style="display:flex;justify-content:space-between;align-items:center">
           <span style="font-weight:600">商品库</span>
-          <el-button type="primary" @click="showDialog()">新增商品</el-button>
+          <div>
+            <el-button type="primary" @click="showDialog()" style="margin-right:12px">新增商品</el-button>
+            <el-button
+              type="success"
+              :disabled="selectedIds.length === 0"
+              :loading="aiSelecting"
+              @click="handleAiSelect"
+            >AI选品（已选 {{ selectedIds.length }}）</el-button>
+          </div>
         </div>
       </template>
-      <el-table :data="list" stripe>
+      <el-table :data="list" stripe @selection-change="onSelectionChange">
+        <el-table-column type="selection" width="45" />
         <el-table-column prop="product_code" label="编号" width="80" />
         <el-table-column label="商品名称" min-width="180">
           <template #default="{ row }">
@@ -50,52 +59,96 @@
       </el-table>
     </el-card>
 
-    <el-dialog v-model="dialogVisible" :title="form.id ? '编辑商品' : '新增商品'" width="760px">
-      <el-alert
-        v-if="!form.id"
-        title="一键导入：可以粘贴商品文本，或上传 txt/docx/xlsx/csv 文档，系统会自动识别商品名、价格、佣金、类目、热度、口碑、卖点等字段。"
-        type="info"
-        show-icon
-        :closable="false"
-        style="margin-bottom:12px"
-      />
-      <div v-if="!form.id" class="import-box">
-        <el-upload
-          class="doc-upload"
-          action="#"
-          :auto-upload="false"
-          :limit="1"
-          accept=".txt,.docx,.xlsx,.csv"
-          :on-change="handleDocChange"
-          :on-remove="handleDocRemove"
-        >
-          <el-button>选择商品文档</el-button>
-          <template #tip>
-            <span class="doc-tip">支持 txt/docx/xlsx/csv，解析结果会先填入表单，确认后再保存。</span>
-          </template>
-        </el-upload>
-        <el-input
-          v-model="importText"
-          type="textarea"
-          :rows="4"
-          placeholder="示例：商品名称：便携式无线榨汁杯；类目：厨房小家电；价格：79-129元；佣金：15%；热度：月销5000+；口碑：4.8分/好评率96%；卖点：便携、无线、易清洗；目标人群：上班族、学生；痛点：外卖饮品价格高、清洗麻烦"
-        />
-        <div class="import-actions">
-          <el-button type="success" @click="oneClickImport">一键导入到表单</el-button>
-          <el-button type="primary" :loading="docImportLoading" @click="importDocument">文档一键导入</el-button>
-          <el-button @click="fillImportSample">填入示例</el-button>
-          <el-button @click="importText = ''">清空</el-button>
-        </div>
-      </div>
+    <el-dialog v-model="dialogVisible" :title="form.id ? '编辑商品' : '新增商品'" width="780px">
+      <el-tabs v-model="activeTab" v-if="!form.id">
+        <!-- 页签1：手动录入 -->
+        <el-tab-pane label="手动录入" name="manual">
+          <el-form :model="form" label-width="100px">
+            <el-row :gutter="16">
+              <el-col :span="12"><el-form-item label="商品编号"><el-input v-model="form.product_code" /></el-form-item></el-col>
+              <el-col :span="12"><el-form-item label="商品名称"><el-input v-model="form.name" /></el-form-item></el-col>
+            </el-row>
+            <el-row :gutter="16">
+              <el-col :span="12"><el-form-item label="类目"><el-input v-model="form.category" /></el-form-item></el-col>
+              <el-col :span="12"><el-form-item label="负责人"><el-input v-model="form.owner" placeholder="默认：选品运营" /></el-form-item></el-col>
+            </el-row>
+            <el-row :gutter="16">
+              <el-col :span="8"><el-form-item label="最低价"><el-input-number v-model="form.price_min" :min="0" /></el-form-item></el-col>
+              <el-col :span="8"><el-form-item label="最高价"><el-input-number v-model="form.price_max" :min="0" /></el-form-item></el-col>
+              <el-col :span="8"><el-form-item label="佣金%"><el-input-number v-model="form.commission" :min="0" :max="100" :precision="1" /></el-form-item></el-col>
+            </el-row>
+            <el-row :gutter="16">
+              <el-col :span="12"><el-form-item label="热度"><el-input v-model="form.sales_heat" placeholder="如：月销5000+" /></el-form-item></el-col>
+              <el-col :span="12"><el-form-item label="口碑"><el-input v-model="form.reputation" placeholder="如：4.8分/好评率96%" /></el-form-item></el-col>
+            </el-row>
+            <el-form-item label="目标人群"><el-input v-model="form.target_users" type="textarea" /></el-form-item>
+            <el-form-item label="卖点"><el-input v-model="form.selling_points" type="textarea" /></el-form-item>
+            <el-form-item label="痛点"><el-input v-model="form.pain_points" type="textarea" /></el-form-item>
+            <el-form-item label="风险词"><el-input v-model="form.risk_words" type="textarea" /></el-form-item>
+            <el-row :gutter="16">
+              <el-col :span="12"><el-form-item label="评分"><el-input-number v-model="form.score" :min="0" :max="100" disabled /></el-form-item></el-col>
+              <el-col :span="12"><el-form-item label="状态">
+                <el-select v-model="form.status">
+                  <el-option label="待评估" value="待评估" />
+                  <el-option label="已选品" value="已选品" />
+                  <el-option label="已淘汰" value="已淘汰" />
+                </el-select>
+              </el-form-item></el-col>
+            </el-row>
+          </el-form>
+        </el-tab-pane>
 
-      <el-form :model="form" label-width="100px">
+        <!-- 页签2：一键导入 -->
+        <el-tab-pane label="一键导入" name="import">
+          <el-alert
+            title="导入说明：字段与商品库一致（商品编号、名称、类目、负责人、价格、佣金、热度、口碑、人群、卖点、痛点、风险词、评分、状态）。商品编号留空自动生成；同名商品自动跳过。"
+            type="info" show-icon :closable="false" style="margin-bottom:14px"
+          />
+          <el-upload
+            drag
+            :auto-upload="false"
+            :limit="1"
+            accept=".xlsx"
+            :on-change="onFileChange"
+            :on-remove="onFileRemove"
+            style="margin-bottom:16px"
+          >
+            <el-icon class="el-icon--upload"><UploadFilled /></el-icon>
+            <div class="el-upload__text">拖拽 .xlsx 文件到此处，或 <em>点击选择文件</em></div>
+            <template #tip>
+              <div class="el-upload__tip" style="color:#697386">
+                支持一次导入多个商品。
+                <el-link type="primary" :underline="false" @click="downloadTemplate">下载导入模板</el-link>
+              </div>
+            </template>
+          </el-upload>
+          <el-button type="primary" :loading="importing" @click="handleImport">一键导入</el-button>
+
+          <div v-if="importResult" style="margin-top:16px">
+            <el-alert
+              :title="`导入完成：成功 ${importResult.imported} 条，跳过 ${importResult.skipped} 条`"
+              type="success" :closable="false" style="margin-bottom:12px"
+            />
+            <el-table :data="importResult.results" max-height="280" size="small" border>
+              <el-table-column prop="name" label="商品名称" min-width="150" show-overflow-tooltip />
+              <el-table-column prop="product_code" label="编号" width="80" />
+              <el-table-column prop="score" label="评分" width="70" />
+              <el-table-column prop="status" label="状态" width="90" />
+              <el-table-column prop="error" label="备注" min-width="160" show-overflow-tooltip />
+            </el-table>
+          </div>
+        </el-tab-pane>
+      </el-tabs>
+
+      <!-- 编辑模式 / 手动录入：同一套表单 -->
+      <el-form v-if="form.id || activeTab === 'manual'" :model="form" label-width="100px">
         <el-row :gutter="16">
           <el-col :span="12"><el-form-item label="商品编号"><el-input v-model="form.product_code" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="商品名称"><el-input v-model="form.name" /></el-form-item></el-col>
         </el-row>
         <el-row :gutter="16">
           <el-col :span="12"><el-form-item label="类目"><el-input v-model="form.category" /></el-form-item></el-col>
-          <el-col :span="12"><el-form-item label="负责人"><el-input v-model="form.owner" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="负责人"><el-input v-model="form.owner" placeholder="默认：选品运营" /></el-form-item></el-col>
         </el-row>
         <el-row :gutter="16">
           <el-col :span="8"><el-form-item label="最低价"><el-input-number v-model="form.price_min" :min="0" /></el-form-item></el-col>
@@ -103,15 +156,15 @@
           <el-col :span="8"><el-form-item label="佣金%"><el-input-number v-model="form.commission" :min="0" :max="100" :precision="1" /></el-form-item></el-col>
         </el-row>
         <el-row :gutter="16">
-          <el-col :span="12"><el-form-item label="热度"><el-input v-model="form.sales_heat" placeholder="如：月销5000+" /></el-form-item></el-col>
-          <el-col :span="12"><el-form-item label="口碑"><el-input v-model="form.reputation" placeholder="如：4.8分/好评率96%" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="热度"><el-input v-model="form.sales_heat" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="口碑"><el-input v-model="form.reputation" /></el-form-item></el-col>
         </el-row>
         <el-form-item label="目标人群"><el-input v-model="form.target_users" type="textarea" /></el-form-item>
         <el-form-item label="卖点"><el-input v-model="form.selling_points" type="textarea" /></el-form-item>
         <el-form-item label="痛点"><el-input v-model="form.pain_points" type="textarea" /></el-form-item>
         <el-form-item label="风险词"><el-input v-model="form.risk_words" type="textarea" /></el-form-item>
         <el-row :gutter="16">
-          <el-col :span="12"><el-form-item label="评分"><el-input-number v-model="form.score" :min="0" :max="100" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="评分"><el-input-number v-model="form.score" :min="0" :max="100" disabled /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="状态">
             <el-select v-model="form.status">
               <el-option label="待评估" value="待评估" />
@@ -121,10 +174,38 @@
           </el-form-item></el-col>
         </el-row>
       </el-form>
+
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleSave">保存</el-button>
+        <el-button v-if="form.id || activeTab === 'manual'" type="primary" @click="handleSave">保存</el-button>
       </template>
+    </el-dialog>
+
+    <el-dialog v-model="aiResultVisible" title="AI 选品结果" width="860px">
+      <el-alert
+        :title="`分析完成：共 ${aiResult?.total ?? 0} 个商品，评分已回填，状态已自动更新`"
+        type="success" :closable="false" style="margin-bottom:12px"
+      />
+      <el-table :data="aiResult?.results || []" max-height="420" size="small" border>
+        <el-table-column prop="product_code" label="编号" width="80" />
+        <el-table-column prop="name" label="商品名称" min-width="140" show-overflow-tooltip />
+        <el-table-column prop="score" label="评分" width="70" />
+        <el-table-column prop="status" label="状态" width="90" />
+        <el-table-column label="维度分" min-width="240">
+          <template #default="{ row }">
+            <el-tag size="small">热{{ row.dimensions?.heat }}</el-tag>
+            <el-tag size="small" type="warning">口碑{{ row.dimensions?.reputation }}</el-tag>
+            <el-tag size="small" type="success">佣{{ row.dimensions?.commission }}</el-tag>
+            <el-tag size="small" type="info">内容{{ row.dimensions?.content }}</el-tag>
+            <el-tag size="small" type="danger">合规{{ row.dimensions?.compliance }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="AI 建议" min-width="220" show-overflow-tooltip>
+          <template #default="{ row }">
+            {{ row.ai?.recommendation || '未调用 AI（未配置 Key）' }}
+          </template>
+        </el-table-column>
+      </el-table>
     </el-dialog>
 
     <el-drawer v-model="detailVisible" title="商品详情" size="560px" destroy-on-close>
@@ -162,9 +243,14 @@ const dialogVisible = ref(false)
 const detailVisible = ref(false)
 const currentDetail = ref(null)
 const form = ref({})
-const importText = ref('')
-const selectedDocFile = ref(null)
-const docImportLoading = ref(false)
+const activeTab = ref('manual')
+const importFile = ref(null)
+const importing = ref(false)
+const importResult = ref(null)
+const selectedIds = ref([])
+const aiSelecting = ref(false)
+const aiResultVisible = ref(false)
+const aiResult = ref(null)
 
 const loadList = async () => {
   const res = await productsApi.list({ limit: 500 })
@@ -198,8 +284,10 @@ const nextProductCode = () => {
 }
 
 const showDialog = (row) => {
+  activeTab.value = 'manual'
+  importFile.value = null
+  importResult.value = null
   form.value = row ? { ...row } : defaultForm()
-  importText.value = ''
   dialogVisible.value = true
 }
 
@@ -208,102 +296,53 @@ const showDetail = (row) => {
   detailVisible.value = true
 }
 
-const fillImportSample = () => {
-  importText.value = '商品名称：便携式无线榨汁杯；类目：厨房小家电；价格：79-129元；佣金：15%；热度：月销5000+；口碑：4.8分/好评率96%；目标人群：上班族、学生、宝妈、健身人群；卖点：便携、无线、易清洗、制作快、容量适中；痛点：外卖饮品价格高、早上时间紧、传统榨汁机清洗麻烦；风险词：治疗、减肥保证、绝对最低价、全网第一；评分：85；负责人：张三；状态：已选品'
+const onFileChange = (uploadFile) => {
+  importFile.value = uploadFile.raw
+  importResult.value = null
 }
 
-const handleDocChange = (uploadFile) => {
-  selectedDocFile.value = uploadFile.raw
+const onFileRemove = () => {
+  importFile.value = null
+  importResult.value = null
 }
 
-const handleDocRemove = () => {
-  selectedDocFile.value = null
-}
-
-const normalizeImported = (data) => {
-  const cleaned = {}
-  Object.entries(data || {}).forEach(([key, value]) => {
-    cleaned[key] = value === null ? '' : value
-  })
-  return cleaned
-}
-
-const importDocument = async () => {
-  if (!selectedDocFile.value) {
-    ElMessage.warning('请先选择 txt/docx/xlsx/csv 商品文档')
-    return
-  }
-  docImportLoading.value = true
+const downloadTemplate = async () => {
   try {
-    const fd = new FormData()
-    fd.append('file', selectedDocFile.value)
-    const res = await productsApi.importDocument(fd)
-    form.value = {
-      ...form.value,
-      ...normalizeImported(res.data.parsed),
-      product_code: res.data.parsed?.product_code || form.value.product_code || nextProductCode(),
-    }
-    importText.value = res.data.text_preview || importText.value
-    ElMessage.success('文档解析完成，已填入表单，请确认后保存')
+    const res = await productsApi.importTemplate()
+    const url = window.URL.createObjectURL(new Blob([res.data]))
+    const a = document.createElement('a')
+    a.href = url
+    a.download = '商品导入模板.xlsx'
+    a.click()
+    window.URL.revokeObjectURL(url)
   } catch (e) {
-    ElMessage.error(e.response?.data?.detail || '文档导入失败')
-  } finally {
-    docImportLoading.value = false
+    ElMessage.error('模板下载失败')
   }
 }
 
-const pickText = (text, names) => {
-  for (const name of names) {
-    const reg = new RegExp(`${name}[：:：]?\\s*([^；;\\n]+)`, 'i')
-    const m = text.match(reg)
-    if (m) return m[1].trim()
-  }
-  return ''
-}
-
-const parsePrice = (text) => {
-  const m = text.match(/(?:价格|售价|价格区间)[：:：]?\s*¥?\s*(\d+(?:\.\d+)?)\s*[-~—至到]\s*¥?\s*(\d+(?:\.\d+)?)/i)
-  if (m) return { min: Number(m[1]), max: Number(m[2]) }
-  const single = text.match(/(?:价格|售价)[：:：]?\s*¥?\s*(\d+(?:\.\d+)?)/i)
-  if (single) return { min: Number(single[1]), max: Number(single[1]) }
-  return null
-}
-
-const parsePercent = (value) => {
-  const m = String(value || '').match(/(\d+(?:\.\d+)?)/)
-  return m ? Number(m[1]) : 0
-}
-
-const oneClickImport = () => {
-  const text = importText.value.trim()
-  if (!text) {
-    ElMessage.warning('请先粘贴商品信息，或点击“填入示例”')
+const handleImport = async () => {
+  if (!importFile.value) {
+    ElMessage.warning('请先选择 .xlsx 文件')
     return
   }
-  const price = parsePrice(text)
-  const productName = pickText(text, ['商品名称', '商品名', '名称', '产品名称'])
-  form.value = {
-    ...form.value,
-    product_code: form.value.product_code || nextProductCode(),
-    name: productName || form.value.name,
-    category: pickText(text, ['类目', '分类', '品类']) || form.value.category,
-    price_min: price?.min ?? form.value.price_min,
-    price_max: price?.max ?? form.value.price_max,
-    commission: parsePercent(pickText(text, ['佣金', '佣金比例'])) || form.value.commission,
-    sales_heat: pickText(text, ['热度', '销量', '销量/热度']) || form.value.sales_heat,
-    reputation: pickText(text, ['口碑', '评价', '好评率']) || form.value.reputation,
-    target_users: pickText(text, ['目标人群', '目标用户', '人群']) || form.value.target_users,
-    selling_points: pickText(text, ['卖点', '核心卖点', '可表达卖点']) || form.value.selling_points,
-    pain_points: pickText(text, ['痛点', '用户痛点']) || form.value.pain_points,
-    risk_words: pickText(text, ['风险词', '合规风险']) || form.value.risk_words,
-    owner: pickText(text, ['负责人', '维护人']) || form.value.owner,
-    status: pickText(text, ['状态']) || form.value.status,
-    score: parsePercent(pickText(text, ['评分', '选品评分'])) || form.value.score,
+  importing.value = true
+  try {
+    const res = await productsApi.import(importFile.value)
+    importResult.value = res.data
+    ElMessage.success(`导入完成：成功 ${res.data.imported} 条，跳过 ${res.data.skipped} 条`)
+    loadList()
+  } catch (e) {
+    ElMessage.error('导入失败：' + (e.response?.data?.detail || '请检查文件格式'))
+  } finally {
+    importing.value = false
   }
-  ElMessage.success('已导入到表单，请检查后保存')
 }
 
 const handleSave = async () => {
+  if (!form.value.name || !String(form.value.name).trim()) {
+    ElMessage.warning('请先填写商品名称')
+    return
+  }
   try {
     if (form.value.id) {
       await productsApi.update(form.value.id, form.value)
@@ -323,6 +362,30 @@ const handleDelete = async (id) => {
   await productsApi.delete(id)
   ElMessage.success('删除成功')
   loadList()
+}
+
+const onSelectionChange = (rows) => {
+  selectedIds.value = rows.map(r => r.id)
+}
+
+const handleAiSelect = async () => {
+  if (selectedIds.value.length === 0) {
+    ElMessage.warning('请先勾选要分析的商品')
+    return
+  }
+  aiSelecting.value = true
+  try {
+    const res = await productsApi.aiSelect(selectedIds.value)
+    aiResult.value = res.data
+    aiResultVisible.value = true
+    const count = (s) => res.data.results.filter(r => r.status === s).length
+    ElMessage.success(`分析完成：已选品 ${count('已选品')} 个，待评估 ${count('待评估')} 个，已淘汰 ${count('已淘汰')} 个`)
+    loadList()
+  } catch (e) {
+    ElMessage.error('AI 选品失败：' + (e.response?.data?.detail || '请检查后端/API Key'))
+  } finally {
+    aiSelecting.value = false
+  }
 }
 
 onMounted(loadList)
@@ -350,25 +413,5 @@ onMounted(loadList)
   line-height: 1.6;
   max-height: calc(1.6em * 3);
   color: #5f6673;
-}
-.import-box {
-  margin-bottom: 18px;
-  padding: 14px;
-  border-radius: 14px;
-  background: #f8fafc;
-  border: 1px solid rgba(20, 33, 61, .08);
-}
-.import-actions {
-  display: flex;
-  gap: 10px;
-  margin-top: 10px;
-}
-.doc-upload {
-  margin-bottom: 12px;
-}
-.doc-tip {
-  margin-left: 10px;
-  color: #64748b;
-  font-size: 13px;
 }
 </style>

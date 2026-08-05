@@ -13,7 +13,7 @@ def list_leads(skip: int = 0, limit: int = 500, follow_status: str = None, db: S
     query = db.query(Lead)
     if follow_status:
         query = query.filter(Lead.follow_status == follow_status)
-    return query.order_by(Lead.id.desc()).offset(skip).limit(limit).all()
+    return query.order_by(Lead.id.asc()).offset(skip).limit(limit).all()
 
 
 @router.get("/{lead_id}", response_model=LeadOut)

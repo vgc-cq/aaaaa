@@ -16,6 +16,13 @@ export const productsApi = {
     headers: { 'Content-Type': 'multipart/form-data' },
     timeout: 120000,
   }),
+  importTemplate: () => api.get('/products/import_template', { responseType: 'blob' }),
+  import: (file) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    return api.post('/products/import', fd, { timeout: 300000 })
+  },
+  aiSelect: (ids) => api.post('/products/ai_select', { product_ids: ids }, { timeout: 300000 }),
   todayTasks: () => api.get('/products/view/today'),
   kanban: () => api.get('/products/view/kanban'),
 }

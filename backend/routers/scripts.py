@@ -15,7 +15,7 @@ def list_scripts(skip: int = 0, limit: int = 500, product_id: int = None, conten
         query = query.filter(Script.product_id == product_id)
     if content_id:
         query = query.filter(Script.content_id == content_id)
-    return query.order_by(Script.id.desc()).offset(skip).limit(limit).all()
+    return query.order_by(Script.id.asc()).offset(skip).limit(limit).all()
 
 
 @router.get("/{script_id}", response_model=ScriptOut)

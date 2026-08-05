@@ -13,7 +13,7 @@ def list_knowledge(skip: int = 0, limit: int = 500, category: str = None, db: Se
     query = db.query(Knowledge)
     if category:
         query = query.filter(Knowledge.category == category)
-    return query.order_by(Knowledge.id.desc()).offset(skip).limit(limit).all()
+    return query.order_by(Knowledge.id.asc()).offset(skip).limit(limit).all()
 
 
 @router.get("/{knowledge_id}", response_model=KnowledgeOut)
