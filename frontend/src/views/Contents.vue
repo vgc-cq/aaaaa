@@ -3,7 +3,7 @@
     <el-card class="vision-card">
       <template #header>
         <div style="display:flex;justify-content:space-between;align-items:center">
-          <span style="font-weight:600">Qwen-VL-Max 视频/图片内容拆解</span>
+          <span style="font-weight:600">Qwen-VL-Max 视频内容拆解</span>
           <el-tag type="success">Qwen-VL-Max 看画面，DeepSeek 做拆解</el-tag>
         </div>
       </template>
@@ -13,14 +13,26 @@
             <el-form-item label="输入类型">
               <el-select v-model="visionForm.source_type">
                 <el-option label="视频URL" value="video_url" />
-                <el-option label="图片URL" value="image_url" />
                 <el-option label="文字描述" value="text" />
               </el-select>
             </el-form-item>
           </el-col>
           <el-col :span="9">
-            <el-form-item label="商品名称">
-              <el-input v-model="visionForm.product_name" placeholder="可选，如便携式无线榨汁杯" />
+            <el-form-item label="关联商品">
+              <el-select
+                v-model="visionForm.product_id"
+                clearable
+                filterable
+                placeholder="从商品库选择（可选）"
+                @change="onProductChange"
+              >
+                <el-option
+                  v-for="p in productOptions"
+                  :key="p.id"
+                  :label="`${p.product_code} ${p.name}`"
+                  :value="p.id"
+                />
+              </el-select>
             </el-form-item>
           </el-col>
           <el-col :span="9">
@@ -187,10 +199,11 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { contentsApi, visionApi } from '../api'
+import { contentsApi, productsApi, visionApi } from '../api'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const list = ref([])
+const productOptions = ref([])
 const dialogVisible = ref(false)
 const detailVisible = ref(false)
 const currentDetail = ref(null)
@@ -200,10 +213,11 @@ const uploadLoading = ref(false)
 const visionResult = ref(null)
 const selectedMediaFile = ref(null)
 const visionForm = ref({
-  source_type: 'text',
+  source_type: 'video_url',
   source_url: '',
   text: '',
-  product_name: '便携式无线榨汁杯',
+  product_id: null,
+  product_name: '',
   save_to_table: true,
 })
 
@@ -250,11 +264,22 @@ const loadList = async () => {
   list.value = res.data
 }
 
+const loadProducts = async () => {
+  const res = await productsApi.list({ limit: 500 })
+  productOptions.value = res.data
+}
+
+const onProductChange = (id) => {
+  const p = productOptions.value.find(x => x.id === id)
+  visionForm.value.product_name = p ? p.name : ''
+}
+
 const fillVisionSample = () => {
   visionForm.value = {
     source_type: 'text',
     source_url: '',
-    product_name: '便携式无线榨汁杯',
+    product_id: null,
+    product_name: '',
     save_to_table: true,
     text: '0-3秒：女生早上看闹钟，说每天早上多睡10分钟还能喝到新鲜果汁。3-8秒：展示便携榨汁杯放入水果，一键启动。8-15秒：对比外卖饮品价格高、含糖高。15-25秒：展示加水一键清洗。25-30秒：提示收藏并点击购物车。',
   }
@@ -312,7 +337,10 @@ const handleDelete = async (id) => {
 
 const formatJson = (obj) => JSON.stringify(obj || {}, null, 2)
 
-onMounted(loadList)
+onMounted(() => {
+  loadList()
+  loadProducts()
+})
 </script>
 
 <style scoped>
