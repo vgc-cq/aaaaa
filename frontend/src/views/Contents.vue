@@ -84,7 +84,7 @@
       </el-card>
     </el-card>
 
-    <el-card style="margin-top:20px">
+    <el-card class="table-card">
       <template #header>
         <div style="display:flex;justify-content:space-between;align-items:center">
           <span style="font-weight:600">爆款内容拆解表</span>
@@ -93,17 +93,24 @@
       </template>
       <el-table :data="list" stripe>
         <el-table-column prop="content_code" label="编号" width="80" />
-        <el-table-column prop="hook" label="开头钩子" width="200" show-overflow-tooltip />
-        <el-table-column prop="scene" label="场景" width="120" />
-        <el-table-column prop="target_group" label="人群" width="100" />
-        <el-table-column prop="structure" label="内容结构" show-overflow-tooltip />
-        <el-table-column prop="conversion_point" label="转化点" width="120" />
-        <el-table-column prop="remix_angles" label="二创角度" show-overflow-tooltip />
-        <el-table-column prop="analyst" label="拆解人" width="120" />
-        <el-table-column label="操作" width="150" fixed="right">
+        <el-table-column label="开头钩子" min-width="220">
           <template #default="{ row }">
-            <el-button size="small" @click="showDialog(row)">编辑</el-button>
-            <el-button size="small" type="danger" @click="handleDelete(row.id)">删除</el-button>
+            <button class="summary-cell" type="button" @click="showDetail(row)">{{ row.hook || '暂无钩子' }}</button>
+          </template>
+        </el-table-column>
+        <el-table-column prop="scene" label="场景" width="150" />
+        <el-table-column prop="target_group" label="人群" width="150" />
+        <el-table-column prop="structure" label="内容结构" min-width="210" />
+        <el-table-column prop="conversion_point" label="转化点" min-width="210" />
+        <el-table-column prop="remix_angles" label="二创角度" min-width="180" />
+        <el-table-column prop="analyst" label="拆解人" width="150" />
+        <el-table-column label="操作" width="240" fixed="right">
+          <template #default="{ row }">
+            <div class="action-row">
+              <el-button class="action-btn" size="small" @click="showDetail(row)">详情</el-button>
+              <el-button class="action-btn" size="small" @click="showDialog(row)">编辑</el-button>
+              <el-button class="action-btn" size="small" @click="handleDelete(row.id)">删除</el-button>
+            </div>
           </template>
         </el-table-column>
       </el-table>
@@ -130,6 +137,31 @@
         <el-button type="primary" @click="handleSave">保存</el-button>
       </template>
     </el-dialog>
+
+    <el-drawer v-model="detailVisible" title="内容拆解详情" size="560px" destroy-on-close>
+      <div v-if="currentDetail" class="detail-panel">
+        <div class="detail-head">
+          <el-tag>{{ currentDetail.content_code }}</el-tag>
+          <strong>{{ currentDetail.scene || '未命名场景' }}</strong>
+        </div>
+        <el-descriptions :column="1" border>
+          <el-descriptions-item label="对标链接">{{ currentDetail.reference_link || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="目标人群">{{ currentDetail.target_group || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="拆解人">{{ currentDetail.analyst || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="状态">{{ currentDetail.status || '-' }}</el-descriptions-item>
+        </el-descriptions>
+        <h3>开头钩子</h3>
+        <pre class="detail-content">{{ currentDetail.hook || '暂无内容' }}</pre>
+        <h3>内容结构</h3>
+        <pre class="detail-content">{{ currentDetail.structure || '暂无内容' }}</pre>
+        <h3>转化点</h3>
+        <pre class="detail-content">{{ currentDetail.conversion_point || '暂无内容' }}</pre>
+        <h3>二创角度</h3>
+        <pre class="detail-content">{{ currentDetail.remix_angles || '暂无内容' }}</pre>
+        <h3>风险点</h3>
+        <pre class="detail-content">{{ currentDetail.risk_points || '暂无内容' }}</pre>
+      </div>
+    </el-drawer>
   </div>
 </template>
 
@@ -140,6 +172,8 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 
 const list = ref([])
 const dialogVisible = ref(false)
+const detailVisible = ref(false)
+const currentDetail = ref(null)
 const form = ref({})
 const visionLoading = ref(false)
 const uploadLoading = ref(false)
@@ -234,6 +268,11 @@ const showDialog = (row) => {
   dialogVisible.value = true
 }
 
+const showDetail = (row) => {
+  currentDetail.value = row
+  detailVisible.value = true
+}
+
 const handleSave = async () => {
   try {
     if (form.value.id) await contentsApi.update(form.value.id, form.value)
@@ -258,7 +297,19 @@ onMounted(loadList)
 
 <style scoped>
 .vision-card { margin-bottom: 20px; }
+.table-card { margin-top:20px; }
 .result-card { margin-top: 14px; background: #f8fafc !important; }
 .result-block { background:#f5f7fa; padding:16px; border-radius:12px; white-space:pre-wrap; word-break:break-word; line-height:1.7; }
 .upload-text { color:#334155; font-weight:600; padding:18px 0 8px; }
+.summary-cell { width:100%; display:block; border:0; background:transparent; color:#5f6673; text-align:left; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font:inherit; }
+.summary-cell:hover { color:#2454ff; text-decoration:underline; }
+.action-row { display:flex; align-items:center; gap:10px; flex-wrap:nowrap; white-space:nowrap; }
+.action-row :deep(.el-button) { margin-left:0; }
+.action-btn { color:#334155; border-color:#d8e0ea; background:#fff; }
+.action-btn:hover { color:#2454ff; border-color:#9db9ff; background:#f5f8ff; }
+.detail-panel { padding-right:6px; }
+.detail-head { display:flex; align-items:center; gap:12px; margin-bottom:16px; }
+.detail-head strong { font-size:20px; }
+.detail-panel h3 { margin:22px 0 10px; font-size:16px; }
+.detail-content { white-space:pre-wrap; word-break:break-word; line-height:1.8; background:#f6f8fb; border:1px solid rgba(20,33,61,.08); border-radius:14px; padding:16px; color:#334155; }
 </style>

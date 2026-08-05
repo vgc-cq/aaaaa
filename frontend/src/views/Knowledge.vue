@@ -29,11 +29,13 @@
           <template #default="{ row }"><span class="plain-ellipsis">{{ row.usage_effect || '-' }}</span></template>
         </el-table-column>
         <el-table-column prop="updater" label="更新人" width="90" />
-        <el-table-column label="操作" width="190" fixed="right">
+        <el-table-column label="操作" width="240" fixed="right">
           <template #default="{ row }">
-            <el-button size="small" @click="showDetail(row)">详情</el-button>
-            <el-button size="small" @click="showDialog(row)">编辑</el-button>
-            <el-button size="small" type="danger" @click="handleDelete(row.id)">删除</el-button>
+            <div class="action-row">
+              <el-button class="action-btn" size="small" @click="showDetail(row)">详情</el-button>
+              <el-button class="action-btn" size="small" @click="showDialog(row)">编辑</el-button>
+              <el-button class="action-btn" size="small" @click="handleDelete(row.id)">删除</el-button>
+            </div>
           </template>
         </el-table-column>
       </el-table>
@@ -163,4 +165,8 @@ onMounted(() => { loadList(); loadCategories() })
 .detail-head strong { font-size:20px; }
 .detail-panel h3 { margin:22px 0 10px; font-size:16px; }
 .detail-content { white-space:pre-wrap; word-break:break-word; line-height:1.8; background:#f6f8fb; border:1px solid rgba(20,33,61,.08); border-radius:14px; padding:16px; color:#334155; }
+.action-row { display:flex; align-items:center; gap:10px; flex-wrap:nowrap; white-space:nowrap; }
+.action-row :deep(.el-button) { margin-left:0; }
+.action-btn { color:#334155; border-color:#d8e0ea; background:#fff; }
+.action-btn:hover { color:#2454ff; border-color:#9db9ff; background:#f5f8ff; }
 </style>

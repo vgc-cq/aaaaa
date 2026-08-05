@@ -25,7 +25,7 @@
           <template #header><span>视频表现排名（按 ROI）</span></template>
           <el-table :data="videoRanking" stripe size="small">
             <el-table-column prop="video_code" label="视频" width="80" />
-            <el-table-column prop="content_direction" label="内容方向" min-width="170" show-overflow-tooltip />
+            <el-table-column prop="content_direction" label="内容方向" min-width="170" />
             <el-table-column prop="play_count" label="播放量" width="90" />
             <el-table-column prop="spend" label="消耗" width="80" />
             <el-table-column prop="revenue" label="成交" width="80" />
@@ -57,7 +57,7 @@
             <el-table-column prop="priority" label="优先级" width="80"><template #default="{row}"><el-tag :type="row.priority==='P0'?'danger':row.priority==='P1'?'warning':'info'">{{row.priority}}</el-tag></template></el-table-column>
             <el-table-column prop="module" label="模块" width="90" />
             <el-table-column prop="code" label="编号" width="80" />
-            <el-table-column prop="title" label="事项" show-overflow-tooltip />
+            <el-table-column prop="title" label="事项" />
             <el-table-column prop="owner" label="负责人" width="90" />
           </el-table>
         </el-card>
@@ -70,7 +70,7 @@
             <el-table-column prop="content_direction" label="方向" min-width="130" />
             <el-table-column prop="roi" label="ROI" width="70" />
             <el-table-column prop="priority" label="优先级" width="80"><template #default="{row}"><el-tag type="danger">{{row.priority}}</el-tag></template></el-table-column>
-            <el-table-column prop="suggestion" label="建议" show-overflow-tooltip />
+            <el-table-column prop="suggestion" label="建议" />
           </el-table>
         </el-card>
       </el-col>
@@ -108,8 +108,8 @@
         <el-table-column prop="content_direction" label="内容方向" width="160" />
         <el-table-column label="核心指标" width="280"><template #default="{ row }">ROI {{ row.metrics?.roi || '-' }}｜加购率 {{ row.metrics?.cart_click_rate || '-' }}%｜完播 {{ row.metrics?.completion_rate || '-' }}%</template></el-table-column>
         <el-table-column label="决策" width="110"><template #default="{ row }"><el-tag :type="getDecisionType(row.decision)">{{ row.decision }}</el-tag></template></el-table-column>
-        <el-table-column prop="feedback" label="用户反馈" show-overflow-tooltip />
-        <el-table-column prop="suggestion" label="建议" show-overflow-tooltip />
+        <el-table-column prop="feedback" label="用户反馈" />
+        <el-table-column prop="suggestion" label="建议" />
       </el-table>
     </el-card>
   </div>
