@@ -155,6 +155,10 @@ const visionForm = ref({
 
 const handleMediaChange = (uploadFile) => {
   selectedMediaFile.value = uploadFile.raw
+  // 选择了本地素材后，清掉旧的外部 URL，避免误把旧链接拿去分析。
+  visionForm.value.source_url = ''
+  if (uploadFile.raw?.type?.startsWith('image/')) visionForm.value.source_type = 'image_url'
+  if (uploadFile.raw?.type?.startsWith('video/')) visionForm.value.source_type = 'video_url'
 }
 
 const handleMediaRemove = () => {
@@ -178,8 +182,10 @@ const uploadMedia = async () => {
     visionForm.value.source_url = res.data.url
     visionForm.value.source_type = res.data.source_type
     ElMessage.success('上传成功，已回填素材 URL')
+    return true
   } catch (e) {
     ElMessage.error(e.response?.data?.detail || '上传失败')
+    return false
   } finally {
     uploadLoading.value = false
   }
@@ -203,15 +209,21 @@ const fillVisionSample = () => {
 const runVisionBreakdown = async () => {
   visionLoading.value = true
   try {
-    if (visionForm.value.source_type !== 'text' && selectedMediaFile.value && !visionForm.value.source_url) {
-      await uploadMedia()
+    if (visionForm.value.source_type !== 'text' && selectedMediaFile.value) {
+      const ok = await uploadMedia()
+      if (!ok) return
     }
     const res = await visionApi.contentBreakdown(visionForm.value)
     visionResult.value = res.data
     ElMessage.success(res.data.saved ? '拆解并写入成功' : '拆解完成')
     if (res.data.saved) loadList()
   } catch (e) {
-    ElMessage.error(e.response?.data?.detail || '内容拆解失败')
+    ElMessage({
+      type: 'error',
+      message: e.response?.data?.detail || '内容拆解失败',
+      duration: 9000,
+      showClose: true,
+    })
   } finally {
     visionLoading.value = false
   }

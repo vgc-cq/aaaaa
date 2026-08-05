@@ -88,6 +88,68 @@ def image_url_for_qwen(source_url: str, source_type: str) -> str:
     return f"data:{mime};base64,{encoded}"
 
 
+def local_video_url_for_qwen(source_url: str) -> str | None:
+    """本地上传视频优先转 Base64 Data URL，避免 Qwen 云端无法访问 localhost。"""
+    local_path = local_upload_path_from_url(source_url)
+    if not local_path:
+        return None
+    raw = local_path.read_bytes()
+    # 阿里云文档要求本地文件 Base64 后单个 data-uri 小于 10MB；保守限制 9.5MB。
+    encoded_len = len(raw) * 4 / 3
+    if encoded_len > 9.5 * 1024 * 1024:
+        return None
+    mime = mimetypes.guess_type(str(local_path))[0] or "video/mp4"
+    return f"data:{mime};base64,{base64.b64encode(raw).decode('ascii')}"
+
+
+def local_upload_path_from_url(source_url: str) -> Path | None:
+    """如果 URL 指向本机 /uploads 文件，返回本地文件路径。"""
+    if not source_url or "/uploads/" not in source_url:
+        return None
+    parsed = urlparse(source_url)
+    filename = unquote(Path(parsed.path).name)
+    local_path = UPLOAD_DIR / filename
+    return local_path if local_path.exists() else None
+
+
+def extract_video_frame_data_urls(video_path: Path, max_frames: int = 6) -> list[str]:
+    """从本地视频均匀抽帧，转成 base64 图片，供云端视觉模型分析。
+
+    云端 Qwen 无法下载 localhost 视频，因此本地上传视频走抽帧方案。
+    """
+    try:
+        import cv2
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"本地视频抽帧需要 OpenCV：{str(e)}")
+
+    cap = cv2.VideoCapture(str(video_path))
+    if not cap.isOpened():
+        raise HTTPException(status_code=400, detail="本地视频打开失败，请确认文件格式是否为 mp4/mov/webm 等常见格式")
+
+    total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+    if total <= 0:
+        total = max_frames
+    positions = sorted({int(i * max(total - 1, 1) / max(max_frames - 1, 1)) for i in range(max_frames)})
+    frames = []
+    for pos in positions:
+        cap.set(cv2.CAP_PROP_POS_FRAMES, pos)
+        ok, frame = cap.read()
+        if not ok or frame is None:
+            continue
+        h, w = frame.shape[:2]
+        max_side = 768
+        if max(h, w) > max_side:
+            scale = max_side / max(h, w)
+            frame = cv2.resize(frame, (int(w * scale), int(h * scale)))
+        ok, buf = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 82])
+        if ok:
+            frames.append("data:image/jpeg;base64," + base64.b64encode(buf.tobytes()).decode("ascii"))
+    cap.release()
+    if not frames:
+        raise HTTPException(status_code=400, detail="未能从本地视频中抽取画面帧")
+    return frames
+
+
 def get_deepseek_client():
     return OpenAI(api_key=DEEPSEEK_API_KEY, base_url=DEEPSEEK_BASE_URL, http_client=httpx.Client())
 
@@ -116,6 +178,15 @@ def parse_json(text: str) -> dict:
     return {"raw_text": text}
 
 
+def as_text(value) -> str:
+    """把 AI 返回的 list/dict 等结构转成 SQLite 可保存的文本。"""
+    if value is None:
+        return None
+    if isinstance(value, (list, dict)):
+        return json.dumps(value, ensure_ascii=False)
+    return str(value)
+
+
 def next_code(db: Session, model, field_name: str, prefix: str) -> str:
     field = getattr(model, field_name)
     rows = db.query(field).filter(field.like(f"{prefix}%")).all()
@@ -137,6 +208,8 @@ def qwen_describe_media(data: VisionBreakdownInput) -> str:
 
     media_key = "video_url" if data.source_type == "video_url" else "image_url"
     qwen_url = image_url_for_qwen(data.source_url, data.source_type)
+    qwen_video_data_url = local_video_url_for_qwen(data.source_url) if data.source_type == "video_url" else None
+    local_video_path = local_upload_path_from_url(data.source_url) if data.source_type == "video_url" else None
     prompt = """
 你是一位短视频电商内容拆解助理。请认真理解输入的视频/图片内容，输出中文结构化文字描述。
 要求：
@@ -145,6 +218,27 @@ def qwen_describe_media(data: VisionBreakdownInput) -> str:
 3. 如果看不到音频或字幕，请明确说明“音频/字幕未识别”；
 4. 输出适合交给文本模型继续分析的完整文字。
 """
+    if qwen_video_data_url:
+        user_content = [
+            {"type": "text", "text": prompt + "\n注意：当前是本地上传视频，已转为 Base64 视频输入；如无法识别音频，请说明“音频未识别”。"},
+            {"type": "video_url", "video_url": {"url": qwen_video_data_url, "fps": 1.0}},
+        ]
+    elif local_video_path:
+        frame_urls = extract_video_frame_data_urls(local_video_path)
+        user_content = [
+            {
+                "type": "text",
+                "text": prompt + "\n注意：当前是本地上传视频，系统已抽取多个关键画面帧给你分析；如无法识别音频，请说明“音频未识别”。",
+            },
+            # DashScope/OpenAI 兼容模式中，视频抽帧列表应作为 type=video 传入，
+            # 而不是拆成多条 image_url；否则部分模型会报多模态参数错误。
+            {"type": "video", "video": frame_urls},
+        ]
+    else:
+        user_content = [
+            {"type": "text", "text": prompt},
+            {"type": media_key, media_key: {"url": qwen_url}},
+        ]
     try:
         res = get_qwen_client().chat.completions.create(
             model=QWEN_VL_MODEL,
@@ -152,10 +246,7 @@ def qwen_describe_media(data: VisionBreakdownInput) -> str:
                 {"role": "system", "content": "你是专业的视频内容理解模型。"},
                 {
                     "role": "user",
-                    "content": [
-                        {"type": "text", "text": prompt},
-                        {"type": media_key, media_key: {"url": qwen_url}},
-                    ],
+                    "content": user_content,
                 },
             ],
             temperature=0.2,
@@ -249,13 +340,13 @@ def content_breakdown(data: VisionBreakdownInput, db: Session = Depends(get_db))
         content = Content(
             content_code=next_code(db, Content, "content_code", "C"),
             reference_link=data.source_url,
-            hook=breakdown.get("hook"),
-            scene=breakdown.get("scene"),
-            target_group=breakdown.get("target_group"),
-            structure=breakdown.get("structure"),
-            conversion_point=breakdown.get("conversion_point"),
-            remix_angles=breakdown.get("remix_angles"),
-            risk_points=breakdown.get("risk_points"),
+            hook=as_text(breakdown.get("hook")),
+            scene=as_text(breakdown.get("scene")),
+            target_group=as_text(breakdown.get("target_group")),
+            structure=as_text(breakdown.get("structure")),
+            conversion_point=as_text(breakdown.get("conversion_point")),
+            remix_angles=as_text(breakdown.get("remix_angles")),
+            risk_points=as_text(breakdown.get("risk_points")),
             product_id=product.id if product else None,
             analyst="Qwen-VL-Max + DeepSeek",
             status="已拆解",
