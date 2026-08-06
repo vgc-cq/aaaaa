@@ -11,7 +11,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import List
 from database import get_db
-from models import Product
+from models import Content, Product, Script
 from schemas import ProductCreate, ProductOut
 from ai_workflow.workflow import call_ai, parse_ai_response
 from services.scoring import score_product, status_for_score
@@ -449,6 +449,23 @@ def delete_product(product_id: int, db: Session = Depends(get_db)):
     db.delete(db_product)
     db.commit()
     return {"message": "删除成功"}
+
+
+@router.post("/batch_delete")
+def batch_delete_products(data: dict = Body(...), db: Session = Depends(get_db)):
+    """批量删除商品及其关联的内容拆解、脚本，避免孤儿数据"""
+    ids = data.get("product_ids") or []
+    if not ids:
+        raise HTTPException(status_code=400, detail="请先勾选要删除的商品")
+    products = db.query(Product).filter(Product.id.in_(ids)).all()
+    if not products:
+        raise HTTPException(status_code=400, detail="没有可删除的商品")
+
+    db.query(Content).filter(Content.product_id.in_(ids)).delete(synchronize_session=False)
+    db.query(Script).filter(Script.product_id.in_(ids)).delete(synchronize_session=False)
+    db.query(Product).filter(Product.id.in_(ids)).delete(synchronize_session=False)
+    db.commit()
+    return {"message": f"已删除 {len(products)} 个商品及其关联内容/脚本"}
 
 
 @router.get("/view/today")

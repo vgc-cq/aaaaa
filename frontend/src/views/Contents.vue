@@ -2,108 +2,140 @@
   <div>
     <el-card class="vision-card">
       <template #header>
-        <div style="display:flex;justify-content:space-between;align-items:center">
+        <div class="vision-header">
           <span style="font-weight:600">Qwen-VL-Max 视频内容拆解</span>
-          <el-tag type="success">Qwen-VL-Max 看画面，DeepSeek 做拆解</el-tag>
+          <el-tag type="success">看画面 → 拆出钩子 / 场景 / 人群 / 结构 / 转化点 / 二创角度</el-tag>
         </div>
       </template>
-      <el-form :model="visionForm" label-width="110px">
-        <el-row :gutter="16">
-          <el-col :span="6">
-            <el-form-item label="输入类型">
-              <el-select v-model="visionForm.source_type">
-                <el-option label="视频URL" value="video_url" />
-                <el-option label="文字描述" value="text" />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="9">
-            <el-form-item label="关联商品">
-              <el-select
-                v-model="visionForm.product_id"
-                clearable
-                filterable
-                placeholder="从商品库选择（可选）"
-                @change="onProductChange"
-              >
-                <el-option
-                  v-for="p in productOptions"
-                  :key="p.id"
-                  :label="`${p.product_code} ${p.name}`"
-                  :value="p.id"
-                />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="9">
-            <el-form-item label="是否写入表">
-              <el-switch v-model="visionForm.save_to_table" active-text="自动保存" inactive-text="只预览" />
-            </el-form-item>
-          </el-col>
-        </el-row>
-        <el-form-item v-if="visionForm.source_type !== 'text'" label="本地上传">
-          <el-upload
-            drag
-            action="#"
-            :auto-upload="false"
-            :limit="1"
-            accept="image/*,video/*"
-            :on-change="handleMediaChange"
-            :on-remove="handleMediaRemove"
+
+      <el-form label-position="top" class="vision-form">
+        <!-- 第 1 步：关联商品 -->
+        <div class="vision-block">
+          <div class="vision-block-title">1. 关联商品</div>
+          <el-select
+            v-model="visionForm.product_id"
+            clearable
+            filterable
+            placeholder="从商品库选择（可选）"
+            @change="onProductChange"
+            style="width: 360px"
           >
-            <div class="upload-text">拖拽或点击上传本地视频/图片</div>
-            <template #tip>
-              <div class="el-upload__tip">文件会保存到 backend/uploads，并自动回填 URL 后交给 Qwen-VL-Max 识别。</div>
-            </template>
-          </el-upload>
-        </el-form-item>
-        <el-form-item v-if="visionForm.source_type !== 'text'" label="素材URL">
-          <el-input v-model="visionForm.source_url" placeholder="可填写公开视频/图片URL，也可先上传本地素材自动生成" />
-        </el-form-item>
-        <el-form-item v-else label="文字描述">
-          <el-input v-model="visionForm.text" type="textarea" :rows="4" placeholder="粘贴视频字幕、口播文案或人工画面描述" />
-        </el-form-item>
-        <el-form-item>
-          <el-button :loading="uploadLoading" @click="uploadMedia">上传素材</el-button>
-          <el-button type="primary" :loading="visionLoading" @click="runVisionBreakdown">开始拆解</el-button>
-          <el-button @click="fillVisionSample">填入文字示例</el-button>
-        </el-form-item>
+            <el-option
+              v-for="p in productOptions"
+              :key="p.id"
+              :label="`${p.product_code} ${p.name}`"
+              :value="p.id"
+            />
+          </el-select>
+        </div>
+
+        <!-- 第 2 步：输入素材 -->
+        <div class="vision-block">
+          <div class="vision-block-title">2. 输入素材</div>
+          <div class="vision-type-row">
+            <el-radio-group v-model="visionForm.source_type">
+              <el-radio-button value="video_url">视频URL</el-radio-button>
+              <el-radio-button value="text">文字描述</el-radio-button>
+            </el-radio-group>
+            <div class="vision-type-tip">
+              {{ visionForm.source_type === 'video_url' ? '填写爆款视频的公开直链，或上传本地视频' : '可直接使用下方示例，或修改为你的视频文案' }}
+            </div>
+          </div>
+
+          <template v-if="visionForm.source_type === 'video_url'">
+            <el-upload
+              class="vision-upload"
+              drag
+              action="#"
+              :auto-upload="false"
+              :limit="1"
+              accept="video/*,image/*"
+              :on-change="handleMediaChange"
+              :on-remove="handleMediaRemove"
+            >
+              <el-icon class="el-icon--upload"><UploadFilled /></el-icon>
+              <div class="el-upload__text">拖拽本地视频到此处，或 <em>点击选择</em>（选择后自动上传并回填 URL）</div>
+              <template #tip>
+                <div class="el-upload__tip">支持 mp4/mov/webm 等格式；也可直接粘贴视频直链，二选一即可。</div>
+              </template>
+            </el-upload>
+            <el-input v-model="visionForm.source_url" placeholder="粘贴爆款视频的公开直链（抖音/B站需真实可访问的视频地址）" clearable>
+              <template #prepend>视频URL</template>
+            </el-input>
+            <div v-if="uploadLoading" class="vision-upload-tip">正在上传素材…</div>
+          </template>
+          <el-input
+            v-else
+            v-model="visionForm.text"
+            type="textarea"
+            :rows="5"
+            placeholder="示例：0-3秒：女生早上看闹钟，说每天早上多睡10分钟还能喝到新鲜果汁。3-8秒：展示便携榨汁杯放入水果，一键启动。8-15秒：对比外卖饮品价格高、含糖高。15-25秒：展示加水一键清洗。25-30秒：提示收藏并点击购物车。"
+          />
+        </div>
+
+        <div class="vision-actions">
+          <el-button type="primary" size="large" :loading="visionLoading" @click="runVisionBreakdown">
+            {{ visionLoading ? '拆解中…' : '开始拆解' }}
+          </el-button>
+          <el-button @click="clearVision">清空</el-button>
+        </div>
       </el-form>
 
-      <el-card v-if="visionResult" class="result-card" shadow="never">
-        <template #header>
-          <div style="display:flex;justify-content:space-between;align-items:center">
-            <span>拆解结果</span>
-            <el-tag v-if="visionResult.saved" type="success">已写入：{{ visionResult.saved.content_code }}</el-tag>
+      <!-- 拆解结果 -->
+      <div v-if="visionResult" class="vision-result">
+        <div class="vision-result-head">
+          <span>拆解结果</span>
+          <el-tag v-if="visionResult.saved" type="success" size="small">已写入：{{ visionResult.saved.content_code }}</el-tag>
+        </div>
+        <div class="result-grid">
+          <div class="result-item">
+            <div class="result-label">开头钩子</div>
+            <div class="result-text">{{ visionResult.breakdown?.hook || '暂无' }}</div>
           </div>
-        </template>
-        <el-descriptions :column="2" border style="margin-bottom:16px">
-          <el-descriptions-item label="视觉模型">{{ visionResult.vision_model }}</el-descriptions-item>
-          <el-descriptions-item label="分析模型">{{ visionResult.analysis_model }}</el-descriptions-item>
-          <el-descriptions-item label="钩子">{{ visionResult.breakdown?.hook }}</el-descriptions-item>
-          <el-descriptions-item label="目标人群">{{ visionResult.breakdown?.target_group }}</el-descriptions-item>
-          <el-descriptions-item label="场景">{{ visionResult.breakdown?.scene }}</el-descriptions-item>
-          <el-descriptions-item label="转化点">{{ visionResult.breakdown?.conversion_point }}</el-descriptions-item>
-        </el-descriptions>
-        <el-collapse>
-          <el-collapse-item title="Qwen-VL-Max 输出的画面/视频文字描述" name="desc">
+          <div class="result-item">
+            <div class="result-label">场景</div>
+            <div class="result-text">{{ visionResult.breakdown?.scene || '暂无' }}</div>
+          </div>
+          <div class="result-item">
+            <div class="result-label">目标人群</div>
+            <div class="result-text">{{ visionResult.breakdown?.target_group || '暂无' }}</div>
+          </div>
+          <div class="result-item">
+            <div class="result-label">转化点</div>
+            <div class="result-text">{{ visionResult.breakdown?.conversion_point || '暂无' }}</div>
+          </div>
+          <div class="result-item result-item-wide">
+            <div class="result-label">内容结构</div>
+            <div class="result-text">{{ visionResult.breakdown?.structure || '暂无' }}</div>
+          </div>
+          <div class="result-item result-item-wide">
+            <div class="result-label">二创角度</div>
+            <div class="result-text">{{ visionResult.breakdown?.remix_angles || '暂无' }}</div>
+          </div>
+        </div>
+        <el-collapse class="vision-collapse">
+          <el-collapse-item title="查看画面/视频原始描述（模型输出）" name="desc">
             <pre class="result-block">{{ visionResult.media_description }}</pre>
           </el-collapse-item>
-          <el-collapse-item title="DeepSeek 内容拆解 JSON" name="json">
+          <el-collapse-item title="查看拆解原始 JSON" name="json">
             <pre class="result-block">{{ formatJson(visionResult.breakdown) }}</pre>
           </el-collapse-item>
         </el-collapse>
-      </el-card>
+      </div>
     </el-card>
 
     <el-card class="table-card">
       <template #header>
         <div style="display:flex;justify-content:space-between;align-items:center">
-          <span style="font-weight:600">爆款内容拆解表</span>
+          <div style="display:flex;align-items:center;gap:12px">
+            <span style="font-weight:600">爆款内容拆解表</span>
+            <el-button type="danger" size="small" :disabled="selectedContents.length === 0" @click="handleBatchDelete">删除</el-button>
+          </div>
           <el-button type="primary" @click="showDialog()">新增内容</el-button>
         </div>
       </template>
-      <el-table :data="list" stripe>
+      <el-table :data="list" stripe @selection-change="onSelectionChange">
+        <el-table-column type="selection" width="45" />
         <el-table-column prop="content_code" label="编号" width="80" />
         <el-table-column label="开头钩子" min-width="220">
           <template #default="{ row }">
@@ -141,7 +173,7 @@
             <div class="action-row">
               <el-button class="action-btn" size="small" @click="showDetail(row)">详情</el-button>
               <el-button class="action-btn" size="small" @click="showDialog(row)">编辑</el-button>
-              <el-button class="action-btn" size="small" @click="handleDelete(row.id)">删除</el-button>
+              <el-button size="small" type="danger" @click="handleDelete(row.id)">删除</el-button>
             </div>
           </template>
         </el-table-column>
@@ -208,6 +240,7 @@ const dialogVisible = ref(false)
 const detailVisible = ref(false)
 const currentDetail = ref(null)
 const form = ref({})
+const selectedContents = ref([])
 const visionLoading = ref(false)
 const uploadLoading = ref(false)
 const visionResult = ref(null)
@@ -218,15 +251,15 @@ const visionForm = ref({
   text: '',
   product_id: null,
   product_name: '',
-  save_to_table: true,
 })
 
-const handleMediaChange = (uploadFile) => {
+const handleMediaChange = async (uploadFile) => {
   selectedMediaFile.value = uploadFile.raw
   // 选择了本地素材后，清掉旧的外部 URL，避免误把旧链接拿去分析。
   visionForm.value.source_url = ''
   if (uploadFile.raw?.type?.startsWith('image/')) visionForm.value.source_type = 'image_url'
   if (uploadFile.raw?.type?.startsWith('video/')) visionForm.value.source_type = 'video_url'
+  await uploadMedia()
 }
 
 const handleMediaRemove = () => {
@@ -274,25 +307,30 @@ const onProductChange = (id) => {
   visionForm.value.product_name = p ? p.name : ''
 }
 
-const fillVisionSample = () => {
+const clearVision = () => {
   visionForm.value = {
-    source_type: 'text',
+    source_type: 'video_url',
     source_url: '',
+    text: '',
     product_id: null,
     product_name: '',
-    save_to_table: true,
-    text: '0-3秒：女生早上看闹钟，说每天早上多睡10分钟还能喝到新鲜果汁。3-8秒：展示便携榨汁杯放入水果，一键启动。8-15秒：对比外卖饮品价格高、含糖高。15-25秒：展示加水一键清洗。25-30秒：提示收藏并点击购物车。',
   }
+  selectedMediaFile.value = null
+  visionResult.value = null
 }
 
 const runVisionBreakdown = async () => {
   visionLoading.value = true
   try {
-    if (visionForm.value.source_type !== 'text' && selectedMediaFile.value) {
+    if (visionForm.value.source_type === 'text' && !String(visionForm.value.text || '').trim()) {
+      ElMessage.warning('请填写文字描述')
+      return
+    }
+    if (visionForm.value.source_type !== 'text' && selectedMediaFile.value && !visionForm.value.source_url) {
       const ok = await uploadMedia()
       if (!ok) return
     }
-    const res = await visionApi.contentBreakdown(visionForm.value)
+    const res = await visionApi.contentBreakdown({ ...visionForm.value, save_to_table: true })
     visionResult.value = res.data
     ElMessage.success(res.data.saved ? '拆解并写入成功' : '拆解完成')
     if (res.data.saved) loadList()
@@ -335,6 +373,22 @@ const handleDelete = async (id) => {
   loadList()
 }
 
+const onSelectionChange = (rows) => {
+  selectedContents.value = rows
+}
+
+const handleBatchDelete = async () => {
+  if (selectedContents.value.length === 0) { ElMessage.warning('请先勾选要删除的内容'); return }
+  try {
+    await ElMessageBox.confirm(`确认删除选中的 ${selectedContents.value.length} 条内容拆解记录？`, '提示', { type: 'warning' })
+    const res = await contentsApi.batchDelete(selectedContents.value.map(r => r.id))
+    ElMessage.success(res.data.message || '删除成功')
+    loadList()
+  } catch (e) {
+    if (e !== 'cancel' && e !== 'close') ElMessage.error('批量删除失败：' + (e.response?.data?.detail || '请稍后重试'))
+  }
+}
+
 const formatJson = (obj) => JSON.stringify(obj || {}, null, 2)
 
 onMounted(() => {
@@ -346,6 +400,26 @@ onMounted(() => {
 <style scoped>
 .vision-card { margin-bottom: 20px; }
 .table-card { margin-top:20px; }
+.vision-header { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; }
+.vision-form { max-width: 920px; }
+.vision-block { background:#f8fafc; border:1px solid rgba(20,33,61,.08); border-radius:14px; padding:16px; margin-bottom:14px; }
+.vision-block-title { font-weight:700; color:#334155; margin-bottom:12px; }
+.vision-type-row { display:flex; align-items:center; gap:14px; margin-bottom:12px; flex-wrap:wrap; }
+.vision-type-tip { color:#64748b; font-size:13px; }
+.vision-upload { margin-bottom:12px; }
+.vision-upload-tip { color:#16a34a; font-size:13px; margin-top:6px; }
+.vision-setting-row { display:flex; gap:40px; flex-wrap:wrap; }
+.vision-setting-item { display:flex; align-items:center; gap:10px; }
+.vision-setting-label { color:#334155; font-size:14px; font-weight:600; white-space:nowrap; }
+.vision-actions { display:flex; gap:12px; }
+.vision-result { margin-top:16px; background:#f8fafc; border:1px solid rgba(20,33,61,.08); border-radius:14px; padding:16px; }
+.vision-result-head { display:flex; justify-content:space-between; align-items:center; font-weight:700; margin-bottom:12px; }
+.result-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.result-item { background:#fff; border:1px solid rgba(20,33,61,.08); border-radius:10px; padding:12px; }
+.result-item-wide { grid-column:1 / -1; }
+.result-label { font-size:12px; color:#94a3b8; margin-bottom:6px; }
+.result-text { font-size:14px; color:#334155; line-height:1.7; white-space:pre-wrap; word-break:break-word; }
+.vision-collapse { margin-top:12px; }
 .result-card { margin-top: 14px; background: #f8fafc !important; }
 .result-block { background:#f5f7fa; padding:16px; border-radius:12px; white-space:pre-wrap; word-break:break-word; line-height:1.7; }
 .upload-text { color:#334155; font-weight:600; padding:18px 0 8px; }

@@ -3,7 +3,15 @@
     <el-card class="table-card">
       <template #header>
         <div style="display:flex;justify-content:space-between;align-items:center">
-          <span style="font-weight:600">商品库</span>
+          <div style="display:flex;align-items:center;gap:12px">
+            <span style="font-weight:600">商品库</span>
+            <el-button
+              type="danger"
+              size="small"
+              :disabled="selectedIds.length === 0"
+              @click="handleBatchDelete"
+            >删除</el-button>
+          </div>
           <div>
             <el-button type="primary" @click="showDialog()" style="margin-right:12px">新增商品</el-button>
             <el-button
@@ -52,7 +60,7 @@
             <div class="action-row">
               <el-button class="action-btn" size="small" @click="showDetail(row)">详情</el-button>
               <el-button class="action-btn" size="small" @click="showDialog(row)">编辑</el-button>
-              <el-button class="action-btn" size="small" @click="handleDelete(row.id)">删除</el-button>
+              <el-button size="small" type="danger" @click="handleDelete(row.id)">删除</el-button>
             </div>
           </template>
         </el-table-column>
@@ -362,6 +370,27 @@ const handleDelete = async (id) => {
   await productsApi.delete(id)
   ElMessage.success('删除成功')
   loadList()
+}
+
+const handleBatchDelete = async () => {
+  if (selectedIds.value.length === 0) {
+    ElMessage.warning('请先勾选要删除的商品')
+    return
+  }
+  try {
+    await ElMessageBox.confirm(
+      `确认删除选中的 ${selectedIds.value.length} 个商品？关联的内容拆解和脚本将一并删除。`,
+      '提示',
+      { type: 'warning' }
+    )
+    const res = await productsApi.batchDelete(selectedIds.value)
+    ElMessage.success(res.data.message || '删除成功')
+    loadList()
+  } catch (e) {
+    if (e !== 'cancel' && e !== 'close') {
+      ElMessage.error('批量删除失败：' + (e.response?.data?.detail || '请稍后重试'))
+    }
+  }
 }
 
 const onSelectionChange = (rows) => {

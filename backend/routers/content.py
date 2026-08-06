@@ -54,3 +54,23 @@ def delete_content(content_id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"message": "删除成功"}
 
+
+from pydantic import BaseModel
+
+
+class BatchDeleteIn(BaseModel):
+    ids: list[int] = []
+
+
+@router.post("/batch_delete")
+def batch_delete_contents(data: BatchDeleteIn, db: Session = Depends(get_db)):
+    ids = data.ids
+    if not ids:
+        raise HTTPException(status_code=400, detail="请先勾选要删除的内容")
+    items = db.query(Content).filter(Content.id.in_(ids)).all()
+    if not items:
+        raise HTTPException(status_code=400, detail="没有可删除的内容")
+    db.query(Content).filter(Content.id.in_(ids)).delete(synchronize_session=False)
+    db.commit()
+    return {"message": f"已删除 {len(items)} 条内容拆解记录"}
+

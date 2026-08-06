@@ -23,6 +23,7 @@ export const productsApi = {
     return api.post('/products/import', fd, { timeout: 300000 })
   },
   aiSelect: (ids) => api.post('/products/ai_select', { product_ids: ids }, { timeout: 300000 }),
+  batchDelete: (ids) => api.post('/products/batch_delete', { product_ids: ids }),
   todayTasks: () => api.get('/products/view/today'),
   kanban: () => api.get('/products/view/kanban'),
 }
@@ -34,6 +35,7 @@ export const contentsApi = {
   create: (data) => api.post('/contents/', data),
   update: (id, data) => api.put(`/contents/${id}`, data),
   delete: (id) => api.delete(`/contents/${id}`),
+  batchDelete: (ids) => api.post('/contents/batch_delete', { ids }),
 }
 
 // 脚本分镜
@@ -43,6 +45,8 @@ export const scriptsApi = {
   create: (data) => api.post('/scripts/', data),
   update: (id, data) => api.put(`/scripts/${id}`, data),
   delete: (id) => api.delete(`/scripts/${id}`),
+  batchDelete: (ids) => api.post('/scripts/batch_delete', { ids }),
+  generate: (data) => api.post('/scripts/generate', data, { timeout: 300000 }),
 }
 
 // 视频生产
@@ -52,6 +56,7 @@ export const videosApi = {
   create: (data) => api.post('/videos/', data),
   update: (id, data) => api.put(`/videos/${id}`, data),
   delete: (id) => api.delete(`/videos/${id}`),
+  batchDelete: (ids) => api.post('/videos/batch_delete', { ids }),
   kanban: () => api.get('/videos/view/kanban'),
 }
 
@@ -62,6 +67,7 @@ export const adsApi = {
   create: (data) => api.post('/ads/', data),
   update: (id, data) => api.put(`/ads/${id}`, data),
   delete: (id) => api.delete(`/ads/${id}`),
+  batchDelete: (ids) => api.post('/ads/batch_delete', { ids }),
   highPriority: () => api.get('/ads/view/high_priority'),
 }
 
@@ -72,6 +78,7 @@ export const leadsApi = {
   create: (data) => api.post('/leads/', data),
   update: (id, data) => api.put(`/leads/${id}`, data),
   delete: (id) => api.delete(`/leads/${id}`),
+  batchDelete: (ids) => api.post('/leads/batch_delete', { ids }),
   today: () => api.get('/leads/view/today'),
 }
 
@@ -82,6 +89,7 @@ export const reviewsApi = {
   create: (data) => api.post('/reviews/', data),
   update: (id, data) => api.put(`/reviews/${id}`, data),
   delete: (id) => api.delete(`/reviews/${id}`),
+  batchDelete: (ids) => api.post('/reviews/batch_delete', { ids }),
 }
 
 // 知识库
@@ -91,6 +99,7 @@ export const knowledgeApi = {
   create: (data) => api.post('/knowledge/', data),
   update: (id, data) => api.put(`/knowledge/${id}`, data),
   delete: (id) => api.delete(`/knowledge/${id}`),
+  batchDelete: (ids) => api.post('/knowledge/batch_delete', { ids }),
   categories: () => api.get('/knowledge/categories/list'),
 }
 

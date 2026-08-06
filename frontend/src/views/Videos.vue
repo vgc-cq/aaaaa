@@ -3,11 +3,15 @@
     <el-card class="table-card">
       <template #header>
         <div style="display:flex;justify-content:space-between;align-items:center">
-          <span style="font-weight:600">视频生产任务表</span>
+          <div style="display:flex;align-items:center;gap:12px">
+            <span style="font-weight:600">视频生产任务表</span>
+            <el-button type="danger" size="small" :disabled="selectedIds.length === 0" @click="handleBatchDelete">删除</el-button>
+          </div>
           <el-button type="primary" @click="showDialog()">新增视频</el-button>
         </div>
       </template>
-      <el-table :data="list" stripe>
+      <el-table :data="list" stripe @selection-change="onSelectionChange">
+        <el-table-column type="selection" width="45" />
         <el-table-column prop="video_code" label="编号" width="90" />
         <el-table-column prop="material_status" label="素材状态" width="110" />
         <el-table-column prop="generate_tool" label="生成工具" width="130" />
@@ -83,6 +87,7 @@ import { videosApi } from '../api'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const list = ref([])
+const selectedIds = ref([])
 const dialogVisible = ref(false)
 const detailVisible = ref(false)
 const currentDetail = ref(null)
@@ -105,6 +110,22 @@ const handleDelete = async (id) => {
   await ElMessageBox.confirm('确认删除？', '提示', { type: 'warning' })
   await videosApi.delete(id); ElMessage.success('删除成功'); loadList()
 }
+const onSelectionChange = (rows) => {
+  selectedIds.value = rows.map(r => r.id)
+}
+
+const handleBatchDelete = async () => {
+  if (selectedIds.value.length === 0) { ElMessage.warning('请先勾选要删除的记录'); return }
+  try {
+    await ElMessageBox.confirm(`确认删除选中的 ${selectedIds.value.length} 条视频任务记录？`, '提示', { type: 'warning' })
+    const res = await videosApi.batchDelete(selectedIds.value)
+    ElMessage.success(res.data.message || '删除成功')
+    loadList()
+  } catch (e) {
+    if (e !== 'cancel' && e !== 'close') ElMessage.error('批量删除失败：' + (e.response?.data?.detail || '请稍后重试'))
+  }
+}
+
 onMounted(loadList)
 </script>
 

@@ -3,11 +3,15 @@
     <el-card class="table-card">
       <template #header>
         <div style="display:flex;justify-content:space-between;align-items:center">
-          <span style="font-weight:600">客服私域线索表</span>
+          <div style="display:flex;align-items:center;gap:12px">
+            <span style="font-weight:600">客服私域线索表</span>
+            <el-button type="danger" size="small" :disabled="selectedIds.length === 0" @click="handleBatchDelete">删除</el-button>
+          </div>
           <el-button type="primary" @click="showDialog()">新增线索</el-button>
         </div>
       </template>
-      <el-table :data="list" stripe>
+      <el-table :data="list" stripe @selection-change="onSelectionChange">
+        <el-table-column type="selection" width="45" />
         <el-table-column prop="lead_code" label="编号" width="90" />
         <el-table-column label="咨询内容" min-width="280">
           <template #default="{ row }"><button class="summary-cell" type="button" @click="showDetail(row)">{{ row.inquiry || '暂无咨询' }}</button></template>
@@ -65,6 +69,7 @@ import { ref, onMounted } from 'vue'
 import { leadsApi } from '../api'
 import { ElMessage, ElMessageBox } from 'element-plus'
 const list = ref([])
+const selectedIds = ref([])
 const dialogVisible = ref(false)
 const detailVisible = ref(false)
 const currentDetail = ref(null)
@@ -74,6 +79,22 @@ const showDetail = (row) => { currentDetail.value = row; detailVisible.value = t
 const showDialog = (row) => { form.value = row ? { ...row } : { lead_code: '', video_id: 1, inquiry: '', intent: '中', follow_status: '待跟进', wechat_added: '否', script_template: '', owner: '客服' }; dialogVisible.value = true }
 const handleSave = async () => { try { if (form.value.id) await leadsApi.update(form.value.id, form.value); else await leadsApi.create(form.value); ElMessage.success('保存成功'); dialogVisible.value = false; loadList() } catch (e) { ElMessage.error(e.response?.data?.detail || '保存失败') } }
 const handleDelete = async (id) => { await ElMessageBox.confirm('确认删除？', '提示', { type: 'warning' }); await leadsApi.delete(id); ElMessage.success('删除成功'); loadList() }
+const onSelectionChange = (rows) => {
+  selectedIds.value = rows.map(r => r.id)
+}
+
+const handleBatchDelete = async () => {
+  if (selectedIds.value.length === 0) { ElMessage.warning('请先勾选要删除的记录'); return }
+  try {
+    await ElMessageBox.confirm(`确认删除选中的 ${selectedIds.value.length} 条线索记录？`, '提示', { type: 'warning' })
+    const res = await leadsApi.batchDelete(selectedIds.value)
+    ElMessage.success(res.data.message || '删除成功')
+    loadList()
+  } catch (e) {
+    if (e !== 'cancel' && e !== 'close') ElMessage.error('批量删除失败：' + (e.response?.data?.detail || '请稍后重试'))
+  }
+}
+
 onMounted(loadList)
 </script>
 

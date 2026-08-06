@@ -20,7 +20,7 @@ def get_client():
 
 
 def call_ai(system_prompt: str, user_prompt: str) -> str:
-    if not API_KEY or API_KEY == "sk-placeholder":
+    if not API_KEY or API_KEY == "sk-placeholder" or "在这里" in API_KEY:
         return json.dumps({"local_demo": True, "summary": "未配置大模型，已使用本地规则生成演示结果", "next_step": "如需真实生成，请配置 OPENAI_API_KEY；当前测试可先展示流程闭环。"}, ensure_ascii=False)
     try:
         client = get_client()
@@ -165,7 +165,7 @@ def ad_review_agent(data: dict):
         "feedback_used": feedback,
         "local_demo": True
     }
-    if not API_KEY or API_KEY == "sk-placeholder":
+    if not API_KEY or API_KEY == "sk-placeholder" or "在这里" in API_KEY:
         return {"agent": "投流复盘助手", "input": data, "output": local_output}
     result = call_ai(system, prompt)
 

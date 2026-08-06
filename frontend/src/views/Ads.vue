@@ -3,11 +3,15 @@
     <el-card class="table-card">
       <template #header>
         <div style="display:flex;justify-content:space-between;align-items:center">
-          <span style="font-weight:600">投流数据表</span>
+          <div style="display:flex;align-items:center;gap:12px">
+            <span style="font-weight:600">投流数据表</span>
+            <el-button type="danger" size="small" :disabled="selectedIds.length === 0" @click="handleBatchDelete">删除</el-button>
+          </div>
           <el-button type="primary" @click="showDialog()">新增数据</el-button>
         </div>
       </template>
-      <el-table :data="list" stripe>
+      <el-table :data="list" stripe @selection-change="onSelectionChange">
+        <el-table-column type="selection" width="45" />
         <el-table-column prop="id" label="ID" width="70" />
         <el-table-column label="计划名称" min-width="220">
           <template #default="{ row }"><button class="summary-cell" type="button" @click="showDetail(row)">{{ row.plan_name || '未命名计划' }}</button></template>
@@ -79,6 +83,7 @@ import { ref, onMounted } from 'vue'
 import { adsApi } from '../api'
 import { ElMessage, ElMessageBox } from 'element-plus'
 const list = ref([])
+const selectedIds = ref([])
 const dialogVisible = ref(false)
 const detailVisible = ref(false)
 const currentDetail = ref(null)
@@ -88,6 +93,22 @@ const showDetail = (row) => { currentDetail.value = row; detailVisible.value = t
 const showDialog = (row) => { form.value = row ? { ...row } : { video_id: 1, plan_name: '', content_direction: '', play_count: 0, bounce_rate_2s: 0, completion_rate_5s: 0, completion_rate: 0, spend: 0, impressions: 0, clicks: 0, cart_clicks: 0, revenue: 0, orders: 0, anomaly: '', review_suggestion: '', feedback: '', owner: '', status: '投放中', priority: 'P1' }; dialogVisible.value = true }
 const handleSave = async () => { try { if (form.value.id) await adsApi.update(form.value.id, form.value); else await adsApi.create(form.value); ElMessage.success('保存成功'); dialogVisible.value = false; loadList() } catch (e) { ElMessage.error(e.response?.data?.detail || '保存失败') } }
 const handleDelete = async (id) => { await ElMessageBox.confirm('确认删除？', '提示', { type: 'warning' }); await adsApi.delete(id); ElMessage.success('删除成功'); loadList() }
+const onSelectionChange = (rows) => {
+  selectedIds.value = rows.map(r => r.id)
+}
+
+const handleBatchDelete = async () => {
+  if (selectedIds.value.length === 0) { ElMessage.warning('请先勾选要删除的记录'); return }
+  try {
+    await ElMessageBox.confirm(`确认删除选中的 ${selectedIds.value.length} 条投流数据记录？`, '提示', { type: 'warning' })
+    const res = await adsApi.batchDelete(selectedIds.value)
+    ElMessage.success(res.data.message || '删除成功')
+    loadList()
+  } catch (e) {
+    if (e !== 'cancel' && e !== 'close') ElMessage.error('批量删除失败：' + (e.response?.data?.detail || '请稍后重试'))
+  }
+}
+
 onMounted(loadList)
 </script>
 

@@ -3,11 +3,15 @@
     <el-card class="table-card">
       <template #header>
         <div style="display:flex;justify-content:space-between;align-items:center">
-          <span style="font-weight:600">数据复盘表</span>
+          <div style="display:flex;align-items:center;gap:12px">
+            <span style="font-weight:600">数据复盘表</span>
+            <el-button type="danger" size="small" :disabled="selectedIds.length === 0" @click="handleBatchDelete">删除</el-button>
+          </div>
           <el-button type="primary" @click="showDialog()">新增复盘</el-button>
         </div>
       </template>
-      <el-table :data="list" stripe>
+      <el-table :data="list" stripe @selection-change="onSelectionChange">
+        <el-table-column type="selection" width="45" />
         <el-table-column prop="id" label="ID" width="70" />
         <el-table-column label="复盘周期" width="170">
           <template #default="{ row }"><button class="summary-cell" type="button" @click="showDetail(row)">{{ row.review_period || '未命名周期' }}</button></template>
@@ -82,6 +86,7 @@ import { ref, onMounted } from 'vue'
 import { reviewsApi } from '../api'
 import { ElMessage, ElMessageBox } from 'element-plus'
 const list = ref([])
+const selectedIds = ref([])
 const dialogVisible = ref(false)
 const detailVisible = ref(false)
 const currentDetail = ref(null)
@@ -91,6 +96,22 @@ const showDetail = (row) => { currentDetail.value = row; detailVisible.value = t
 const showDialog = (row) => { form.value = row ? { ...row } : { review_period: '', product_performance: '', content_performance: '', video_performance: '', ad_performance: '', problem_analysis: '', next_action: '', owner: '' }; dialogVisible.value = true }
 const handleSave = async () => { try { if (form.value.id) await reviewsApi.update(form.value.id, form.value); else await reviewsApi.create(form.value); ElMessage.success('保存成功'); dialogVisible.value = false; loadList() } catch (e) { ElMessage.error(e.response?.data?.detail || '保存失败') } }
 const handleDelete = async (id) => { await ElMessageBox.confirm('确认删除？', '提示', { type: 'warning' }); await reviewsApi.delete(id); ElMessage.success('删除成功'); loadList() }
+const onSelectionChange = (rows) => {
+  selectedIds.value = rows.map(r => r.id)
+}
+
+const handleBatchDelete = async () => {
+  if (selectedIds.value.length === 0) { ElMessage.warning('请先勾选要删除的记录'); return }
+  try {
+    await ElMessageBox.confirm(`确认删除选中的 ${selectedIds.value.length} 条复盘记录？`, '提示', { type: 'warning' })
+    const res = await reviewsApi.batchDelete(selectedIds.value)
+    ElMessage.success(res.data.message || '删除成功')
+    loadList()
+  } catch (e) {
+    if (e !== 'cancel' && e !== 'close') ElMessage.error('批量删除失败：' + (e.response?.data?.detail || '请稍后重试'))
+  }
+}
+
 onMounted(loadList)
 </script>
 

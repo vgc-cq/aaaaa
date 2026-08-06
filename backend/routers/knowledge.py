@@ -55,6 +55,26 @@ def delete_knowledge(knowledge_id: int, db: Session = Depends(get_db)):
     return {"message": "删除成功"}
 
 
+from pydantic import BaseModel
+
+
+class BatchDeleteIn(BaseModel):
+    ids: list[int] = []
+
+
+@router.post("/batch_delete")
+def batch_delete_knowledge(data: BatchDeleteIn, db: Session = Depends(get_db)):
+    ids = data.ids
+    if not ids:
+        raise HTTPException(status_code=400, detail="请先勾选要删除的知识条目")
+    items = db.query(Knowledge).filter(Knowledge.id.in_(ids)).all()
+    if not items:
+        raise HTTPException(status_code=400, detail="没有可删除的知识条目")
+    db.query(Knowledge).filter(Knowledge.id.in_(ids)).delete(synchronize_session=False)
+    db.commit()
+    return {"message": f"已删除 {len(items)} 条知识条目"}
+
+
 @router.get("/categories/list")
 def list_categories(db: Session = Depends(get_db)):
     """列出所有知识库分类"""

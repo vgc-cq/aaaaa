@@ -31,7 +31,7 @@ def get_client():
 
 def call_ai(prompt: str) -> str:
     """调用 AI API；未配置 Key 时返回本地演示标记。"""
-    if not API_KEY or API_KEY == "sk-placeholder":
+    if not API_KEY or API_KEY == "sk-placeholder" or "在这里" in API_KEY:
         return json.dumps({"local_demo": True, "message": "未配置大模型，使用本地模拟流程"}, ensure_ascii=False)
     try:
         client = get_client()
@@ -161,7 +161,7 @@ def step4_quality_check(script_content: str):
 @router.post("/workflow/full")
 def full_workflow(input_data: AIWorkflowInput):
     """完整工作流：商品信息 → 卖点 → 内容角度 → 脚本 → 质检"""
-    if not API_KEY or API_KEY == "sk-placeholder":
+    if not API_KEY or API_KEY == "sk-placeholder" or "在这里" in API_KEY:
         return local_workflow_result(input_data)
     steps = {}
 

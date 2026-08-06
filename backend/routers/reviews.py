@@ -51,3 +51,23 @@ def delete_review(review_id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"message": "删除成功"}
 
+
+from pydantic import BaseModel
+
+
+class BatchDeleteIn(BaseModel):
+    ids: list[int] = []
+
+
+@router.post("/batch_delete")
+def batch_delete_reviews(data: BatchDeleteIn, db: Session = Depends(get_db)):
+    ids = data.ids
+    if not ids:
+        raise HTTPException(status_code=400, detail="请先勾选要删除的复盘")
+    items = db.query(Review).filter(Review.id.in_(ids)).all()
+    if not items:
+        raise HTTPException(status_code=400, detail="没有可删除的复盘")
+    db.query(Review).filter(Review.id.in_(ids)).delete(synchronize_session=False)
+    db.commit()
+    return {"message": f"已删除 {len(items)} 条复盘记录"}
+

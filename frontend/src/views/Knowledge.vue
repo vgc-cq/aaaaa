@@ -3,7 +3,10 @@
     <el-card>
       <template #header>
         <div style="display:flex;justify-content:space-between;align-items:center">
-          <span style="font-weight:600">知识库 / 提示词库</span>
+          <div style="display:flex;align-items:center;gap:12px">
+            <span style="font-weight:600">知识库 / 提示词库</span>
+            <el-button type="danger" size="small" :disabled="selectedIds.length === 0" @click="handleBatchDelete">删除</el-button>
+          </div>
           <div>
             <el-select v-model="filterCategory" placeholder="按分类筛选" clearable style="margin-right:10px;width:160px" @change="loadList">
               <el-option v-for="c in categories" :key="c" :label="c" :value="c" />
@@ -12,7 +15,8 @@
           </div>
         </div>
       </template>
-      <el-table :data="list" stripe>
+      <el-table :data="list" stripe @selection-change="onSelectionChange">
+        <el-table-column type="selection" width="45" />
         <el-table-column prop="knowledge_code" label="编号" width="80" />
         <el-table-column prop="category" label="分类" width="120">
           <template #default="{ row }"><el-tag size="small">{{ row.category }}</el-tag></template>
@@ -100,6 +104,7 @@ import { knowledgeApi } from '../api'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const list = ref([])
+const selectedIds = ref([])
 const categories = ref([])
 const filterCategory = ref('')
 const dialogVisible = ref(false)
@@ -139,6 +144,22 @@ const handleSave = async () => {
 const handleDelete = async (id) => {
   await ElMessageBox.confirm('确认删除？', '提示', { type: 'warning' })
   await knowledgeApi.delete(id); ElMessage.success('删除成功'); loadList()
+}
+
+const onSelectionChange = (rows) => {
+  selectedIds.value = rows.map(r => r.id)
+}
+
+const handleBatchDelete = async () => {
+  if (selectedIds.value.length === 0) { ElMessage.warning('请先勾选要删除的记录'); return }
+  try {
+    await ElMessageBox.confirm(`确认删除选中的 ${selectedIds.value.length} 条知识条目？`, '提示', { type: 'warning' })
+    const res = await knowledgeApi.batchDelete(selectedIds.value)
+    ElMessage.success(res.data.message || '删除成功')
+    loadList()
+  } catch (e) {
+    if (e !== 'cancel' && e !== 'close') ElMessage.error('批量删除失败：' + (e.response?.data?.detail || '请稍后重试'))
+  }
 }
 
 onMounted(() => { loadList(); loadCategories() })
