@@ -57,6 +57,9 @@ export const videosApi = {
   update: (id, data) => api.put(`/videos/${id}`, data),
   delete: (id) => api.delete(`/videos/${id}`),
   batchDelete: (ids) => api.post('/videos/batch_delete', { ids }),
+  generateWithJimeng: (data) => api.post('/videos/jimeng/generate', data, { timeout: 180000 }),
+  jimengResult: (taskId) => api.get(`/videos/jimeng/result/${taskId}`, { timeout: 120000 }),
+  jimengProgress: (videoId) => api.get(`/videos/jimeng/progress/${videoId}`, { timeout: 120000 }),
   kanban: () => api.get('/videos/view/kanban'),
 }
 
