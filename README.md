@@ -50,7 +50,6 @@ OPENAI_MODEL=deepseek-chat
 | 脚本分镜 | `/scripts` | 秒级脚本、AI提示词 |
 | 视频任务 | `/videos` | 视频生产管理、质检 |
 | 投流数据 | `/ads` | 千川投流数据、ROI分析 |
-| 私域线索 | `/leads` | 客服咨询、加微转化 |
 | 数据复盘 | `/reviews` | 周期复盘、问题归因 |
 | 知识库 | `/knowledge` | 卖点库、提示词库、SOP |
 | AI工作流 | `/ai-workflow` | 商品→脚本的完整AI流程 |
@@ -63,7 +62,6 @@ OPENAI_MODEL=deepseek-chat
 - 脚本：`/api/scripts/`
 - 视频：`/api/videos/`
 - 投流：`/api/ads/`
-- 线索：`/api/leads/`
 - 复盘：`/api/reviews/`
 - 知识库：`/api/knowledge/`
 - AI工作流：`/api/ai/workflow/full`
