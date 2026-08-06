@@ -102,6 +102,9 @@ class ScriptOut(ScriptBase):
 class VideoBase(BaseModel):
     video_code: str
     script_id: Optional[int] = None
+    script_title: Optional[str] = None
+    product_id: Optional[int] = None
+    product_name: Optional[str] = None
     material_status: Optional[str] = "待准备"
     generate_tool: Optional[str] = None
     editor: Optional[str] = None
@@ -110,6 +113,9 @@ class VideoBase(BaseModel):
     publish_time: Optional[datetime] = None
     publish_platform: Optional[str] = None
     publish_status: Optional[str] = "未发布"
+    generate_task_id: Optional[str] = None
+    generate_status: Optional[str] = None
+    video_url: Optional[str] = None
     priority: Optional[str] = "P1"
     notes: Optional[str] = None
 
@@ -129,7 +135,8 @@ class VideoOut(VideoBase):
 
 # ---- AdData ----
 class AdDataBase(BaseModel):
-    video_id: int
+    video_id: Optional[int] = None
+    ad_date: Optional[str] = None
     content_direction: Optional[str] = None
     play_count: Optional[int] = 0
     bounce_rate_2s: Optional[float] = 0
@@ -157,37 +164,6 @@ class AdDataCreate(AdDataBase):
 
 
 class AdDataOut(AdDataBase):
-    id: int
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
-
-    class Config:
-        from_attributes = True
-
-
-# ---- Lead ----
-class LeadBase(BaseModel):
-    lead_code: str
-    video_id: Optional[int] = None
-    inquiry: Optional[str] = None
-    intent: Optional[str] = None
-    follow_status: Optional[str] = "待跟进"
-    wechat_added: Optional[str] = "否"
-    script_template: Optional[str] = None
-    next_follow_time: Optional[datetime] = None
-    conversion_attr: Optional[str] = None
-    source_platform: Optional[str] = None
-    owner: Optional[str] = None
-    priority: Optional[str] = "P1"
-    last_follow_time: Optional[datetime] = None
-    notes: Optional[str] = None
-
-
-class LeadCreate(LeadBase):
-    pass
-
-
-class LeadOut(LeadBase):
     id: int
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None

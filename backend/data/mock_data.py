@@ -1,7 +1,7 @@
 ﻿"""模拟数据初始化"""
 
 from sqlalchemy.orm import Session
-from models import Product, Content, Script, Video, AdData, Lead, Review, Knowledge
+from models import Product, Content, Script, Video, AdData, Review, Knowledge
 from datetime import datetime
 
 
@@ -29,10 +29,6 @@ def enrich_existing_data(db: Session):
         if not getattr(script, "title", None): script.title = f"{script.script_code} 分镜脚本"
         if not getattr(script, "owner", None): script.owner = "脚本编导"
         if not getattr(script, "priority", None): script.priority = "P1"
-    for lead in db.query(Lead).all():
-        if not getattr(lead, "owner", None): lead.owner = "客服"
-        if not getattr(lead, "priority", None): lead.priority = "P1" if lead.intent != "高" else "P0"
-        if not getattr(lead, "source_platform", None): lead.source_platform = "抖音"
     for review in db.query(Review).all():
         if not getattr(review, "status", None): review.status = "已完成"
         if not getattr(review, "priority", None): review.priority = "P0"
@@ -232,28 +228,6 @@ def init_mock_data(db: Session):
         review_suggestion="优化购物车落地页，检查价格竞争力，考虑增加限时优惠"
     )
     db.add_all([ad1, ad2, ad3, ad4, ad5])
-    db.flush()
-
-    # ========== 私域线索 ==========
-    lead1 = Lead(
-        lead_code="L001", video_id=video1.id,
-        inquiry="这个榨汁杯清洗方便吗？", intent="中",
-        follow_status="待跟进", wechat_added="否",
-        script_template="亲，这款榨汁杯支持一键清洗功能，加水后双击启动就能自动清洗，非常方便哦~"
-    )
-    lead2 = Lead(
-        lead_code="L002", video_id=video3.id,
-        inquiry="价格能不能便宜点？学生党预算有限", intent="高",
-        follow_status="待跟进", wechat_added="否",
-        script_template="同学你好！现在下单享受学生专属优惠，还送便携袋哦~"
-    )
-    lead3 = Lead(
-        lead_code="L003", video_id=video5.id,
-        inquiry="容量够几个人喝？办公室能用吗？", intent="中",
-        follow_status="已加微", wechat_added="是",
-        script_template="300ml容量刚好一人份，USB充电，在办公室用电脑就能充，特别方便！"
-    )
-    db.add_all([lead1, lead2, lead3])
     db.flush()
 
     # ========== 复盘表 ==========

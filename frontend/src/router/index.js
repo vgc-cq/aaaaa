@@ -7,7 +7,6 @@ const routes = [
   { path: '/scripts', name: 'Scripts', component: () => import('../views/Scripts.vue'), meta: { title: '脚本分镜' } },
   { path: '/videos', name: 'Videos', component: () => import('../views/Videos.vue'), meta: { title: '视频任务' } },
   { path: '/ads', name: 'Ads', component: () => import('../views/Ads.vue'), meta: { title: '投流数据' } },
-  { path: '/leads', name: 'Leads', component: () => import('../views/Leads.vue'), meta: { title: '私域线索' } },
   { path: '/reviews', name: 'Reviews', component: () => import('../views/Reviews.vue'), meta: { title: '数据复盘' } },
   { path: '/knowledge', name: 'Knowledge', component: () => import('../views/Knowledge.vue'), meta: { title: '知识库' } },
   { path: '/ai-workflow', name: 'AiWorkflow', component: () => import('../views/AiWorkflow.vue'), meta: { title: 'AI工作流' } },

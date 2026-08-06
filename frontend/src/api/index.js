@@ -57,9 +57,8 @@ export const videosApi = {
   update: (id, data) => api.put(`/videos/${id}`, data),
   delete: (id) => api.delete(`/videos/${id}`),
   batchDelete: (ids) => api.post('/videos/batch_delete', { ids }),
-  generateWithJimeng: (data) => api.post('/videos/jimeng/generate', data, { timeout: 180000 }),
-  jimengResult: (taskId) => api.get(`/videos/jimeng/result/${taskId}`, { timeout: 120000 }),
-  jimengProgress: (videoId) => api.get(`/videos/jimeng/progress/${videoId}`, { timeout: 120000 }),
+  generateWithWan: (data) => api.post('/videos/wan/generate', data, { timeout: 180000 }),
+  wanProgress: (videoId) => api.get(`/videos/wan/progress/${videoId}`, { timeout: 120000 }),
   kanban: () => api.get('/videos/view/kanban'),
 }
 
@@ -72,17 +71,8 @@ export const adsApi = {
   delete: (id) => api.delete(`/ads/${id}`),
   batchDelete: (ids) => api.post('/ads/batch_delete', { ids }),
   highPriority: () => api.get('/ads/view/high_priority'),
-}
-
-// 私域线索
-export const leadsApi = {
-  list: (params) => api.get('/leads/', { params }),
-  get: (id) => api.get(`/leads/${id}`),
-  create: (data) => api.post('/leads/', data),
-  update: (id, data) => api.put(`/leads/${id}`, data),
-  delete: (id) => api.delete(`/leads/${id}`),
-  batchDelete: (ids) => api.post('/leads/batch_delete', { ids }),
-  today: () => api.get('/leads/view/today'),
+  importTemplate: () => api.get('/ads/import_template', { responseType: 'blob' }),
+  importData: (formData) => api.post('/ads/import', formData, { timeout: 120000 }),
 }
 
 // 复盘表

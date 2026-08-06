@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from database import get_db
-from models import Product, Content, Script, Video, AdData, Lead, Review, Knowledge
+from models import Product, Content, Script, Video, AdData, Review, Knowledge
 import io
 
 router = APIRouter()
@@ -67,13 +67,6 @@ def export_all(db: Session = Depends(get_db)):
     sheets["投流数据"] = (
         ["编号", "计划名称", "消耗", "展现", "点击", "CTR", "购物车点击", "成交金额", "订单数", "ROI", "异常", "建议"],
         [[a.id, a.plan_name, a.spend, a.impressions, a.clicks, a.ctr, a.cart_clicks, a.revenue, a.orders, a.roi, a.anomaly, a.review_suggestion] for a in ads]
-    )
-
-    # 私域线索
-    leads = db.query(Lead).all()
-    sheets["私域线索"] = (
-        ["编号", "线索编号", "咨询内容", "意向", "跟进状态", "加微", "话术"],
-        [[l.id, l.lead_code, l.inquiry, l.intent, l.follow_status, l.wechat_added, l.script_template] for l in leads]
     )
 
     # 复盘表

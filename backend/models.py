@@ -92,6 +92,9 @@ class Video(Base):
     id = Column(Integer, primary_key=True, index=True)
     video_code = Column(String(50), unique=True, index=True, comment="视频编号")
     script_id = Column(Integer, ForeignKey("scripts.id"), comment="脚本编号")
+    script_title = Column(String(200), comment="脚本标题（脚本组）")
+    product_id = Column(Integer, comment="关联商品")
+    product_name = Column(String(200), comment="关联商品名称")
     material_status = Column(String(50), default="待准备", comment="素材状态")
     generate_tool = Column(String(100), comment="生成工具")
     editor = Column(String(100), comment="剪辑负责人")
@@ -100,6 +103,9 @@ class Video(Base):
     publish_time = Column(DateTime, comment="发布时间")
     publish_platform = Column(String(100), comment="发布平台")
     publish_status = Column(String(50), default="未发布", comment="发布状态")
+    generate_task_id = Column(String(100), comment="视频生成任务ID")
+    generate_status = Column(String(50), comment="生成状态 PENDING/RUNNING/SUCCEEDED/FAILED")
+    video_url = Column(Text, comment="生成视频URL")
     priority = Column(String(20), default="P1", comment="优先级")
     notes = Column(Text, comment="备注/问题")
     created_at = Column(DateTime, default=datetime.now)
@@ -107,7 +113,6 @@ class Video(Base):
 
     script = relationship("Script", back_populates="videos")
     ad_data = relationship("AdData", back_populates="video", uselist=False)
-    leads = relationship("Lead", back_populates="video")
 
 
 class AdData(Base):
@@ -116,6 +121,7 @@ class AdData(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     video_id = Column(Integer, ForeignKey("videos.id"), comment="视频编号")
+    ad_date = Column(String(20), comment="投放日期")
     content_direction = Column(String(200), comment="内容方向")
     play_count = Column(Integer, default=0, comment="播放量")
     bounce_rate_2s = Column(Float, default=0, comment="2秒跳出率")
@@ -140,31 +146,6 @@ class AdData(Base):
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
     video = relationship("Video", back_populates="ad_data")
-
-
-class Lead(Base):
-    """客服私域线索表"""
-    __tablename__ = "leads"
-
-    id = Column(Integer, primary_key=True, index=True)
-    lead_code = Column(String(50), unique=True, index=True, comment="线索编号")
-    video_id = Column(Integer, ForeignKey("videos.id"), comment="来源视频")
-    inquiry = Column(Text, comment="咨询内容")
-    intent = Column(String(50), comment="用户意向")
-    follow_status = Column(String(50), default="待跟进", comment="跟进状态")
-    wechat_added = Column(String(10), default="否", comment="加微状态")
-    script_template = Column(Text, comment="话术模板")
-    next_follow_time = Column(DateTime, comment="下次跟进时间")
-    conversion_attr = Column(String(200), comment="成交归因")
-    source_platform = Column(String(100), comment="来源平台")
-    owner = Column(String(100), comment="负责人")
-    priority = Column(String(20), default="P1", comment="优先级")
-    last_follow_time = Column(DateTime, comment="最后跟进时间")
-    notes = Column(Text, comment="备注/问题")
-    created_at = Column(DateTime, default=datetime.now)
-    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
-
-    video = relationship("Video", back_populates="leads")
 
 
 class Review(Base):

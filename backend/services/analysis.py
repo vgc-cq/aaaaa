@@ -204,7 +204,7 @@ def analyze_single_video(video_id: int, db: Session = Depends(get_db)):
 @router.get("/today_tasks")
 def today_tasks(db: Session = Depends(get_db)):
     """统一今日待处理视图。"""
-    from models import Content, Script, Lead, Review, Knowledge
+    from models import Content, Script, Review, Knowledge
     tasks = []
     for p in db.query(Product).filter(Product.status.in_(["待评估", "待选品"])).all():
         tasks.append({"module": "商品库", "code": p.product_code, "title": p.name, "owner": p.owner, "status": p.status, "priority": "P1"})
@@ -212,8 +212,6 @@ def today_tasks(db: Session = Depends(get_db)):
         tasks.append({"module": "内容拆解", "code": c.content_code, "title": c.hook, "owner": c.analyst, "status": c.status, "priority": c.priority})
     for sc in db.query(Script).filter(Script.review_status.in_(["待审核", "已驳回"])).all():
         tasks.append({"module": "脚本分镜", "code": sc.script_code, "title": sc.title or sc.scene_desc, "owner": sc.owner, "status": sc.review_status, "priority": sc.priority})
-    for l in db.query(Lead).filter(Lead.follow_status == "待跟进").all():
-        tasks.append({"module": "私域线索", "code": l.lead_code, "title": l.inquiry, "owner": l.owner, "status": l.follow_status, "priority": l.priority})
     for r in db.query(Review).filter(Review.status.in_(["待复盘", "分析中"])).all():
         tasks.append({"module": "数据复盘", "code": f"R{r.id:03d}", "title": r.review_period, "owner": r.owner, "status": r.status, "priority": r.priority})
     order = {"P0": 0, "P1": 1, "P2": 2}
@@ -224,7 +222,7 @@ def today_tasks(db: Session = Depends(get_db)):
 @router.get("/owner_kanban")
 def owner_kanban(db: Session = Depends(get_db)):
     """按负责人看板。"""
-    from models import Content, Script, Video, Lead, Review
+    from models import Content, Script, Video, Review
     board = {}
     def add(owner, module, code, status, priority="P1"):
         owner = owner or "未分配"
@@ -233,7 +231,6 @@ def owner_kanban(db: Session = Depends(get_db)):
     for c in db.query(Content).all(): add(c.analyst, "内容拆解", c.content_code, c.status, c.priority)
     for sc in db.query(Script).all(): add(sc.owner, "脚本分镜", sc.script_code, sc.review_status, sc.priority)
     for v in db.query(Video).all(): add(v.editor, "视频任务", v.video_code, v.publish_status, v.priority)
-    for l in db.query(Lead).all(): add(l.owner, "私域线索", l.lead_code, l.follow_status, l.priority)
     for r in db.query(Review).all(): add(r.owner, "数据复盘", f"R{r.id:03d}", r.status, r.priority)
     return board
 
@@ -241,7 +238,7 @@ def owner_kanban(db: Session = Depends(get_db)):
 @router.get("/status_kanban")
 def status_kanban(db: Session = Depends(get_db)):
     """按状态看板。"""
-    from models import Content, Script, Video, Lead, Review
+    from models import Content, Script, Video, Review
     board = {}
     def add(status, module, code, owner=None, priority="P1"):
         status = status or "未设置"
@@ -250,7 +247,6 @@ def status_kanban(db: Session = Depends(get_db)):
     for c in db.query(Content).all(): add(c.status, "内容拆解", c.content_code, c.analyst, c.priority)
     for sc in db.query(Script).all(): add(sc.review_status, "脚本分镜", sc.script_code, sc.owner, sc.priority)
     for v in db.query(Video).all(): add(v.publish_status, "视频任务", v.video_code, v.editor, v.priority)
-    for l in db.query(Lead).all(): add(l.follow_status, "私域线索", l.lead_code, l.owner, l.priority)
     for r in db.query(Review).all(): add(r.status, "数据复盘", f"R{r.id:03d}", r.owner, r.priority)
     return board
 

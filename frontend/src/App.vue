@@ -15,7 +15,6 @@
         <el-menu-item index="/scripts"><el-icon><Film /></el-icon><span>脚本分镜</span></el-menu-item>
         <el-menu-item index="/videos"><el-icon><VideoCamera /></el-icon><span>视频任务</span></el-menu-item>
         <el-menu-item index="/ads"><el-icon><TrendCharts /></el-icon><span>投流数据</span></el-menu-item>
-        <el-menu-item index="/leads"><el-icon><User /></el-icon><span>私域线索</span></el-menu-item>
         <el-menu-item index="/reviews"><el-icon><DataAnalysis /></el-icon><span>数据复盘</span></el-menu-item>
         <el-menu-item index="/knowledge"><el-icon><Collection /></el-icon><span>知识库</span></el-menu-item>
         <el-menu-item index="/ai-workflow"><el-icon><MagicStick /></el-icon><span>AI工作流</span></el-menu-item>

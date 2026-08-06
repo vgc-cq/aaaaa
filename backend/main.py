@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from database import engine, Base, ensure_sqlite_columns
-from routers import products, content, scripts, videos, ads, leads, reviews, knowledge, review_agent
+from routers import products, content, scripts, videos, ads, reviews, knowledge, review_agent
 from ai_workflow import workflow, agents, vision
 from services import analysis, excel_export
 
@@ -41,7 +41,6 @@ app.include_router(content.router, prefix="/api/contents", tags=["内容拆解"]
 app.include_router(scripts.router, prefix="/api/scripts", tags=["脚本分镜"])
 app.include_router(videos.router, prefix="/api/videos", tags=["视频生产"])
 app.include_router(ads.router, prefix="/api/ads", tags=["投流数据"])
-app.include_router(leads.router, prefix="/api/leads", tags=["私域线索"])
 app.include_router(reviews.router, prefix="/api/reviews", tags=["数据复盘"])
 app.include_router(review_agent.router, prefix="/api/review-agent", tags=["自主复盘智能体"])
 app.include_router(knowledge.router, prefix="/api/knowledge", tags=["知识库"])
