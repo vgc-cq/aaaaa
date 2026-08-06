@@ -92,6 +92,19 @@ export const reviewsApi = {
   batchDelete: (ids) => api.post('/reviews/batch_delete', { ids }),
 }
 
+// 复盘智能体
+export const reviewAgentApi = {
+  analyze: (data) => api.post('/reviews/agent/analyze', data),
+  save: (data) => api.post('/reviews/agent/save', data),
+  batchAnalyze: (data = {}) => api.post('/reviews/agent/batch_analyze', data, { timeout: 180000 }),
+  batchSave: (data) => api.post('/reviews/agent/batch_save', data),
+}
+
+export const autonomousReviewAgentApi = {
+  run: (data = {}) => api.post('/review-agent/run', data, { timeout: 180000 }),
+  execute: (data) => api.post('/review-agent/execute', data),
+}
+
 // 知识库
 export const knowledgeApi = {
   list: (params) => api.get('/knowledge/', { params }),
@@ -150,6 +163,7 @@ export const exportApi = {
 }
 
 export default api
+
 
 
 
