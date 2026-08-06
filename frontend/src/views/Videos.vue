@@ -13,7 +13,9 @@
       <el-table :data="list" stripe @selection-change="onSelectionChange">
         <el-table-column type="selection" width="45" />
         <el-table-column prop="video_code" label="编号" width="90" />
-        <el-table-column prop="material_status" label="素材状态" width="110" />
+        <el-table-column label="素材状态" width="110">
+          <template #default="{ row }">{{ displayMaterialStatus(row.material_status) }}</template>
+        </el-table-column>
         <el-table-column prop="generate_tool" label="生成工具" width="130" />
         <el-table-column prop="editor" label="负责人" width="100" />
         <el-table-column prop="version" label="版本" width="80" />
@@ -47,7 +49,7 @@
           <el-col :span="12"><el-form-item label="脚本ID"><el-input-number v-model="form.script_id" :min="1" /></el-form-item></el-col>
         </el-row>
         <el-row :gutter="16">
-          <el-col :span="12"><el-form-item label="素材状态"><el-select v-model="form.material_status"><el-option label="待准备" value="待准备" /><el-option label="已完成" value="已完成" /></el-select></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="素材状态"><el-select v-model="form.material_status"><el-option label="待准备" value="待准备" /><el-option label="已完成" value="已完成" /><el-option label="待优化" value="待优化" /></el-select></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="生成工具"><el-input v-model="form.generate_tool" /></el-form-item></el-col>
         </el-row>
         <el-row :gutter="16">
@@ -68,7 +70,7 @@
         <div class="detail-head"><el-tag>{{ currentDetail.video_code }}</el-tag><strong>{{ currentDetail.publish_platform || '未设置平台' }}</strong></div>
         <el-descriptions :column="1" border>
           <el-descriptions-item label="脚本ID">{{ currentDetail.script_id || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="素材状态">{{ currentDetail.material_status || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="素材状态">{{ displayMaterialStatus(currentDetail.material_status) }}</el-descriptions-item>
           <el-descriptions-item label="生成工具">{{ currentDetail.generate_tool || '-' }}</el-descriptions-item>
           <el-descriptions-item label="负责人">{{ currentDetail.editor || '-' }}</el-descriptions-item>
           <el-descriptions-item label="版本">{{ currentDetail.version || '-' }}</el-descriptions-item>
@@ -95,8 +97,16 @@ const form = ref({})
 
 const loadList = async () => { const res = await videosApi.list(); list.value = res.data }
 const showDetail = (row) => { currentDetail.value = row; detailVisible.value = true }
+const displayMaterialStatus = (value) => {
+  if (value === '???' || value === '待优化') return '待优化'
+  if (value === '已完成') return '已完成'
+  return value || '待准备'
+}
+
 const showDialog = (row) => {
-  form.value = row ? { ...row } : { video_code: '', script_id: 1, material_status: '待准备', generate_tool: '', editor: '', version: 'v1', quality_items: '', publish_platform: '', publish_status: '未发布' }
+  form.value = row
+    ? { ...row, material_status: displayMaterialStatus(row.material_status) }
+    : { video_code: '', script_id: 1, material_status: '待准备', generate_tool: '', editor: '', version: 'v1', quality_items: '', publish_platform: '', publish_status: '未发布' }
   dialogVisible.value = true
 }
 const handleSave = async () => {
