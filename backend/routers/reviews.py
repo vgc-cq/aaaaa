@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from ai_workflow.workflow import call_ai, parse_ai_response
 from database import get_db
-from models import AdData, Content, Knowledge, Product, Review, Script, Video
+from models import AdData, AgentMemory, Content, Knowledge, Product, Review, Script, Video
 from schemas import ReviewCreate, ReviewOut
 
 router = APIRouter()
@@ -16,7 +16,20 @@ router = APIRouter()
 
 @router.get("/", response_model=List[ReviewOut])
 def list_reviews(skip: int = 0, limit: int = 500, db: Session = Depends(get_db)):
-    return db.query(Review).order_by(Review.id.asc()).offset(skip).limit(limit).all()
+    rows = db.query(Review).order_by(Review.id.asc()).offset(skip).limit(limit).all()
+    ad_ids = {r.ad_id for r in rows if r.ad_id}
+    video_ids = {r.video_id for r in rows if r.video_id}
+    ads = {a.id: a for a in db.query(AdData).filter(AdData.id.in_(ad_ids)).all()} if ad_ids else {}
+    videos = {v.id: v for v in db.query(Video).filter(Video.id.in_(video_ids)).all()} if video_ids else {}
+    result = []
+    for r in rows:
+        item = ReviewOut.model_validate(r)
+        ad = ads.get(r.ad_id)
+        video = videos.get(r.video_id)
+        item.video_code = video.video_code if video else None
+        item.content_direction = ad.content_direction if ad else None
+        result.append(item)
+    return result
 
 
 @router.get("/{review_id}", response_model=ReviewOut)
@@ -41,8 +54,22 @@ def update_review(review_id: int, item: ReviewCreate, db: Session = Depends(get_
     db_item = db.query(Review).filter(Review.id == review_id).first()
     if not db_item:
         raise HTTPException(status_code=404, detail="Review not found")
+    old_status = db_item.status
     for key, value in item.model_dump(exclude_unset=True).items():
         setattr(db_item, key, value)
+    # 记忆：用户把状态改为"认可/不认可"时，把这次生成写入智能体经验记忆表
+    if db_item.status in ("认可", "不认可") and db_item.status != old_status:
+        db.add(AgentMemory(
+            review_id=db_item.id,
+            ad_id=db_item.ad_id,
+            video_id=db_item.video_id,
+            memory_type=db_item.status,
+            rating=db_item.review_level,
+            decision=db_item.decision,
+            summary=db_item.summary,
+            suggestions=db_item.next_action,
+            problems=db_item.problem_analysis,
+        ))
     db.commit()
     db.refresh(db_item)
     return db_item

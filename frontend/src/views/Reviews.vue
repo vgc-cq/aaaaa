@@ -1,115 +1,82 @@
 <template>
   <div>
-    <!-- ============ LangGraph 自主复盘智能体工作台 ============ -->
+    <!-- ============ 投流数据复盘智能体（LangGraph） ============ -->
     <el-card class="agent-card">
       <template #header>
         <div class="page-header">
           <div class="header-left">
-            <span style="font-weight:600">LangGraph 自主复盘智能体</span>
+            <span style="font-weight:600">投流数据复盘智能体（LangGraph）</span>
             <el-tag :type="statusTagType" size="small">{{ statusText }}</el-tag>
           </div>
           <div class="header-left">
-            <el-button size="small" :disabled="!plan" @click="clearPlan">清空结果</el-button>
+            <el-button size="small" @click="clearResult">清空结果</el-button>
           </div>
         </div>
       </template>
 
       <!-- LangGraph 状态图：节点随运行推进高亮 -->
       <el-steps :active="agentStep" align-center finish-status="success" class="graph-steps">
-        <el-step title="读取数据" description="collect_context" />
-        <el-step title="指标计算" description="metrics（规则）" />
-        <el-step title="AI 规划" description="plan（DeepSeek）" />
-        <el-step title="人工审批" description="approval" />
-        <el-step title="执行工具" description="execute_tools" />
+        <el-step title="读取数据" description="扫描未复盘投流" />
+        <el-step title="指标计算" description="ROI/CTR/CVR（规则）" />
+        <el-step title="AI 复盘" description="DeepSeek 结论与建议" />
+        <el-step title="写回建议" description="ad_data + 复盘表" />
+        <el-step title="记录日志" description="agent_runs" />
       </el-steps>
 
-      <!-- 运行配置 -->
-      <el-form :model="agentForm" label-width="100px" class="agent-form" @submit.prevent>
-        <el-row :gutter="16">
-          <el-col :span="14">
-            <el-form-item label="复盘目标">
-              <el-input v-model="agentForm.goal" placeholder="例如：复盘全部投流数据，给出放量/优化/停投建议" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="6">
-            <el-form-item label="只看视频">
-              <el-select v-model="agentForm.video_id" clearable filterable placeholder="全部视频" style="width:100%">
-                <el-option v-for="v in videoOptions" :key="v.id" :label="`${v.video_code} ${v.script_title || ''}`" :value="v.id" />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="4">
-            <el-form-item label-width="0">
-              <el-button type="primary" :loading="agentStep === 1 || agentStep === 2 || agentStep === 3" @click="runAgent">开始智能体复盘</el-button>
-            </el-form-item>
-          </el-col>
-        </el-row>
+      <div class="agent-tip">
+        智能体会自动扫描"还没有复盘建议"的投流数据，逐条计算指标并生成复盘结论与优化建议
+        （建议直接给出，无需人工审批）。后台也会按设定间隔自动巡检（backend/.env 的 REVIEW_INTERVAL_MINUTES 控制）。
+      </div>
+      <el-form inline>
+        <el-form-item label="每批数量">
+          <el-input-number v-model="reviewLimit" :min="1" :max="20" />
+        </el-form-item>
+        <el-form-item label="重新复盘">
+          <el-checkbox v-model="reviewForce">强制重新复盘（含已复盘）</el-checkbox>
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" :loading="running" @click="runAgent">复盘未复盘投流数据</el-button>
+          <el-button :disabled="running" @click="loadLogs">刷新记录</el-button>
+        </el-form-item>
       </el-form>
 
-      <!-- 计划与人工审批 -->
-      <div v-if="plan" class="plan-panel">
-        <el-divider content-position="left">AI 执行计划（待人工审批）</el-divider>
-        <el-alert :title="plan.summary || '智能体已生成执行计划'" type="info" :closable="false" show-icon />
-        <div v-if="plan.risks && plan.risks.length" class="risk-row">
-          <span class="risk-label">风险提示：</span>
-          <el-tag v-for="(risk, i) in plan.risks" :key="i" type="danger" size="small" style="margin-right:8px">{{ risk.reason }}</el-tag>
-        </div>
-
-        <el-table :data="plan.actions || []" size="small" border stripe class="action-table">
-          <el-table-column width="45">
-            <template #default="{ row, $index }">
-              <el-checkbox :model-value="selectedIndexes.includes($index)" @change="toggleAction($index)" />
-            </template>
+      <div v-if="reviewResult" class="result-panel">
+        <el-divider content-position="left">本次复盘结果（建议直接给出）</el-divider>
+        <el-alert :title="reviewResult.message" type="success" :closable="false" show-icon />
+        <el-table :data="reviewResult.results" size="small" border stripe style="margin-top:12px">
+          <el-table-column label="视频" width="110">
+            <template #default="{ row }">{{ row.video_code || `视频#${row.video_id}` }}</template>
           </el-table-column>
-          <el-table-column label="工具" width="150">
-            <template #default="{ row }">{{ toolLabel(row.tool) }}</template>
+          <el-table-column prop="content_direction" label="内容方向" min-width="140" show-overflow-tooltip />
+          <el-table-column label="ROI" width="80">
+            <template #default="{ row }">{{ row.metrics?.roi ?? '-' }}</template>
           </el-table-column>
-          <el-table-column label="处理对象" width="130">
-            <template #default="{ row }">投流#{{ row.ad_id ?? '-' }} / 视频#{{ row.video_id ?? '-' }}</template>
-          </el-table-column>
-          <el-table-column label="建议动作" min-width="180">
+          <el-table-column label="评级" width="80">
             <template #default="{ row }">
-              <el-tag :type="decisionTagType(row.decision)" size="small">{{ decisionLabel(row.decision) }}</el-tag>
+              <el-tag :type="ratingTagType(row.review?.rating)" size="small">{{ row.review?.rating || '-' }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="判断理由" min-width="280" show-overflow-tooltip>
-            <template #default="{ row }">{{ row.reason || '-' }}</template>
+          <el-table-column label="决策" width="110">
+            <template #default="{ row }">{{ row.review?.decision || '-' }}</template>
           </el-table-column>
-          <el-table-column label="优先级" width="80">
-            <template #default="{ row }">
-              <el-tag :type="row.priority === 'P0' ? 'danger' : row.priority === 'P1' ? 'warning' : 'info'" size="small">{{ row.priority }}</el-tag>
-            </template>
+          <el-table-column label="总体判断" min-width="180" show-overflow-tooltip>
+            <template #default="{ row }">{{ row.review?.summary || '-' }}</template>
+          </el-table-column>
+          <el-table-column label="优化建议" min-width="260" show-overflow-tooltip>
+            <template #default="{ row }">{{ (row.review?.suggestions || []).join('；') || '-' }}</template>
           </el-table-column>
         </el-table>
-
-        <div class="approve-bar">
-          <span>已勾选 <b>{{ selectedIndexes.length }}</b> 个动作，确认后才会写入业务数据（人工审批 · human-in-the-loop）</span>
-          <div>
-            <el-button size="small" @click="toggleSelectAll">全选 / 取消</el-button>
-            <el-button size="small" type="danger" :disabled="selectedIndexes.length === 0" :loading="executing" @click="executeActions">
-              执行已选动作（{{ selectedIndexes.length }}）
-            </el-button>
-          </div>
-        </div>
       </div>
 
-      <!-- 执行结果 -->
-      <div v-if="executionResult" class="execution-panel">
-        <el-divider content-position="left">执行结果</el-divider>
-        <el-alert :title="`执行完成：成功 ${(executionResult.executed || []).length} 个，跳过 ${(executionResult.skipped || []).length} 个`" type="success" :closable="false" show-icon />
-        <el-table v-if="(executionResult.executed || []).length" :data="executionResult.executed" size="small" border stripe style="margin-top:12px">
-          <el-table-column prop="index" label="序号" width="70" />
-          <el-table-column label="工具" width="180">
-            <template #default="{ row }">{{ toolLabel(row.tool) }}</template>
-          </el-table-column>
-          <el-table-column prop="id" label="记录ID" width="100" />
-          <el-table-column prop="result" label="执行结果" min-width="160" />
-        </el-table>
-        <el-table v-if="(executionResult.skipped || []).length" :data="executionResult.skipped" size="small" border stripe style="margin-top:12px">
-          <el-table-column prop="index" label="序号" width="70" />
-          <el-table-column prop="reason" label="跳过原因" min-width="240" />
-        </el-table>
-      </div>
+      <el-divider content-position="left">最近复盘运行记录</el-divider>
+      <el-table :data="logs" size="small" border>
+        <el-table-column prop="created_at" label="时间" min-width="170" />
+        <el-table-column prop="status" label="状态" width="100" />
+        <el-table-column prop="products_processed" label="复盘条数" width="100" />
+        <el-table-column label="说明" min-width="220">
+          <template #default="{ row }">{{ row.summary?.message || '-' }}</template>
+        </el-table-column>
+      </el-table>
     </el-card>
 
     <!-- ============ 复盘记录表 ============ -->
@@ -131,6 +98,23 @@
             <button class="summary-cell" type="button" @click="showDetail(row)">{{ row.review_period || '未命名周期' }}</button>
           </template>
         </el-table-column>
+        <el-table-column label="关联投流 / 视频" width="150">
+          <template #default="{ row }">
+            <span>投流#{{ row.ad_id ?? '-' }}</span>
+            <span style="margin-left:8px">视频#{{ row.video_id ?? '未关联' }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="视频" width="90">
+          <template #default="{ row }">{{ row.video_code || (row.video_id ? `视频#${row.video_id}` : '-') }}</template>
+        </el-table-column>
+        <el-table-column prop="content_direction" label="内容方向" min-width="130" show-overflow-tooltip />
+        <el-table-column label="评级" width="80">
+          <template #default="{ row }">
+            <el-tag :type="ratingTagType(row.review_level)" size="small">{{ row.review_level || '-' }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="decision" label="决策" width="110" />
+        <el-table-column prop="summary" label="总体判断" min-width="170" show-overflow-tooltip />
         <el-table-column label="问题归因" min-width="260">
           <template #default="{ row }"><div class="multi-line-cell">{{ row.problem_analysis || '暂无归因' }}</div></template>
         </el-table-column>
@@ -140,7 +124,7 @@
         <el-table-column prop="owner" label="负责人" width="110" />
         <el-table-column label="状态" width="100">
           <template #default="{ row }">
-            <el-tag :type="row.status === '已完成' ? 'success' : row.status === '分析中' ? 'warning' : 'info'" size="small">{{ row.status || '待复盘' }}</el-tag>
+            <el-tag :type="reviewStatusTagType(row.status)" size="small">{{ row.status || '待处理' }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="操作" width="240" fixed="right">
@@ -161,7 +145,17 @@
         <el-form-item label="复盘周期"><el-input v-model="form.review_period" placeholder="如：2026年8月第1周" /></el-form-item>
         <el-row :gutter="16">
           <el-col :span="12"><el-form-item label="负责人"><el-input v-model="form.owner" /></el-form-item></el-col>
-          <el-col :span="12"><el-form-item label="状态"><el-select v-model="form.status"><el-option label="待复盘" value="待复盘" /><el-option label="分析中" value="分析中" /><el-option label="已完成" value="已完成" /></el-select></el-form-item></el-col>
+          <el-col :span="12">
+            <el-form-item label="状态">
+              <el-select v-model="form.status">
+                <el-option label="待处理" value="待处理" />
+                <el-option label="认可" value="认可" />
+                <el-option label="不认可" value="不认可" />
+                <el-option label="已完成" value="已完成" />
+              </el-select>
+              <div class="memory-tip">选择"认可/不认可"会写入智能体经验记忆，影响以后生成</div>
+            </el-form-item>
+          </el-col>
         </el-row>
         <el-form-item label="问题归因"><el-input v-model="form.problem_analysis" type="textarea" :rows="3" /></el-form-item>
         <el-form-item label="优化动作"><el-input v-model="form.next_action" type="textarea" :rows="3" /></el-form-item>
@@ -185,8 +179,10 @@
       <div v-if="currentDetail" class="detail-panel">
         <div class="detail-head">
           <el-tag>{{ currentDetail.review_period || '复盘' }}</el-tag>
+          <el-tag type="info">投流#{{ currentDetail.ad_id ?? '-' }}</el-tag>
+          <el-tag type="info">视频#{{ currentDetail.video_id ?? '未关联' }}</el-tag>
           <strong>{{ currentDetail.owner || '未分配' }}</strong>
-          <el-tag :type="currentDetail.status === '已完成' ? 'success' : 'warning'" size="small">{{ currentDetail.status || '待复盘' }}</el-tag>
+          <el-tag :type="reviewStatusTagType(currentDetail.status)" size="small">{{ currentDetail.status || '待处理' }}</el-tag>
         </div>
         <h3>问题归因</h3><pre class="detail-content">{{ currentDetail.problem_analysis || '暂无' }}</pre>
         <h3>优化动作</h3><pre class="detail-content">{{ currentDetail.next_action || '暂无' }}</pre>
@@ -203,7 +199,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { autonomousReviewAgentApi, reviewsApi, videosApi } from '../api'
+import { autonomousReviewAgentApi, reviewsApi } from '../api'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 // ---------- 复盘记录表 ----------
@@ -213,13 +209,19 @@ const dialogVisible = ref(false)
 const detailVisible = ref(false)
 const currentDetail = ref(null)
 const form = ref({})
+const reviewStatusTagType = (status) => {
+  if (status === '认可' || status === '已完成') return 'success'
+  if (status === '不认可') return 'danger'
+  if (status === '待处理' || status === '分析中') return 'warning'
+  return 'info'
+}
 
 const loadList = async () => { const res = await reviewsApi.list(); list.value = res.data }
 const showDetail = (row) => { currentDetail.value = row; detailVisible.value = true }
 const showDialog = (row) => {
   form.value = row
     ? { ...row }
-    : { review_period: '', product_performance: '', content_performance: '', video_performance: '', ad_performance: '', problem_analysis: '', next_action: '', owner: '', status: '待复盘', priority: 'P1' }
+    : { review_period: '', product_performance: '', content_performance: '', video_performance: '', ad_performance: '', problem_analysis: '', next_action: '', owner: '', status: '待处理', priority: 'P1' }
   dialogVisible.value = true
 }
 const handleSave = async () => {
@@ -249,118 +251,71 @@ const handleBatchDelete = async () => {
   }
 }
 
-// ---------- LangGraph 智能体 ----------
-const agentForm = ref({ goal: '复盘全部投流数据，给出放量/优化/停投建议', video_id: null })
-const videoOptions = ref([])
+// ---------- 投流复盘智能体（LangGraph） ----------
+const reviewLimit = ref(5)
+const reviewForce = ref(false)
+const running = ref(false)
 const agentStep = ref(0) // el-steps active：0 未开始 → 5 全部完成
-const plan = ref(null)
-const selectedIndexes = ref([])
-const executing = ref(false)
-const executionResult = ref(null)
+const reviewResult = ref(null)
+const logs = ref([])
 
 const statusText = computed(() => {
   if (agentStep.value === 0) return '待运行'
-  if (agentStep.value <= 3) return '智能体运行中…'
-  if (agentStep.value === 3) return '等待人工审批'
-  if (agentStep.value === 4) return '执行工具中…'
-  return '执行完成'
+  if (agentStep.value < 5) return '智能体运行中…'
+  return '复盘完成'
 })
 const statusTagType = computed(() => {
   if (agentStep.value === 0) return 'info'
-  if (agentStep.value <= 3) return 'warning'
-  if (agentStep.value === 3) return 'warning'
+  if (agentStep.value < 5) return 'warning'
   return 'success'
 })
+const ratingTagType = (rating) => {
+  if (rating === '优秀') return 'success'
+  if (rating === '较差') return 'danger'
+  return 'warning'
+}
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms))
 
-const loadVideos = async () => {
-  const res = await videosApi.list({ limit: 500 })
-  videoOptions.value = res.data
-}
-
 const runAgent = async () => {
-  plan.value = null
-  executionResult.value = null
-  selectedIndexes.value = []
-  agentStep.value = 1
-  await delay(500)
-  agentStep.value = 2
-  await delay(500)
-  agentStep.value = 3
+  running.value = true
+  reviewResult.value = null
+  agentStep.value = 0
   try {
-    const res = await autonomousReviewAgentApi.run({
-      goal: agentForm.value.goal,
-      video_id: agentForm.value.video_id || undefined,
-    })
-    if (res.data?.status === 'empty') {
-      ElMessage.warning(res.data.message || '没有可分析的投流数据')
-      agentStep.value = 0
-      return
-    }
-    plan.value = res.data
-    agentStep.value = 3 // 停在人工审批
-    ElMessage.success(`智能体已生成 ${(res.data.actions || []).length} 个执行动作，等待审批`)
+    agentStep.value = 1
+    await delay(400)
+    agentStep.value = 2
+    await delay(400)
+    agentStep.value = 3
+    const res = await autonomousReviewAgentApi.run({ limit: reviewLimit.value, force: reviewForce.value })
+    agentStep.value = 4
+    await delay(300)
+    agentStep.value = 5
+    reviewResult.value = res.data
+    if ((res.data.results || []).length === 0) ElMessage.info(res.data.message || '没有未复盘的投流数据')
+    else ElMessage.success(`复盘完成：${res.data.processed} 条投流数据`)
+    await loadLogs()
   } catch (e) {
     agentStep.value = 0
-    ElMessage.error(e.response?.data?.detail || '智能体运行失败')
-  }
-}
-
-const toggleAction = (index) => {
-  const i = selectedIndexes.value.indexOf(index)
-  if (i >= 0) selectedIndexes.value.splice(i, 1)
-  else selectedIndexes.value.push(index)
-}
-const toolLabel = (tool) => ({
-  update_ad_status: '更新投流状态',
-  create_video_task: '创建视频优化任务',
-  create_review: '生成复盘记录',
-  save_knowledge: '沉淀知识库',
-})[tool] || tool || '-'
-const decisionLabel = (decision) => ({
-  scale: '放量',
-  stop_and_remake: '停投并重做',
-  observe_and_optimize: '观察优化',
-  rewrite_hook: '重写钩子',
-})[decision] || decision || '优化'
-const decisionTagType = (decision) => {
-  if (decision === 'scale') return 'success'
-  if (decision === 'stop_and_remake') return 'danger'
-  return 'warning'
-}
-const toggleSelectAll = () => {
-  const all = plan.value?.actions || []
-  if (selectedIndexes.value.length === all.length) selectedIndexes.value = []
-  else selectedIndexes.value = all.map((_, i) => i)
-}
-
-const executeActions = async () => {
-  if (selectedIndexes.value.length === 0) { ElMessage.warning('请先勾选要执行的动作'); return }
-  executing.value = true
-  agentStep.value = 4
-  await delay(600)
-  try {
-    const res = await autonomousReviewAgentApi.execute({ plan: plan.value, approved_indexes: selectedIndexes.value })
-    executionResult.value = res.data
-    agentStep.value = 5
-    ElMessage.success('执行完成')
-    loadList()
-  } catch (e) {
-    agentStep.value = 3
-    ElMessage.error(e.response?.data?.detail || '执行失败')
+    ElMessage.error(e.response?.data?.detail || '复盘失败')
   } finally {
-    executing.value = false
+    running.value = false
   }
 }
-const clearPlan = () => {
-  plan.value = null
-  executionResult.value = null
-  selectedIndexes.value = []
+
+const loadLogs = async () => {
+  try {
+    const res = await autonomousReviewAgentApi.logs({ limit: 10 })
+    logs.value = res.data
+  } catch (e) { /* 忽略 */ }
+}
+
+const clearResult = () => {
+  reviewResult.value = null
   agentStep.value = 0
 }
 
-onMounted(() => { loadList(); loadVideos() })
+onMounted(() => { loadList(); loadLogs() })
 </script>
 
 <style scoped>
@@ -369,7 +324,10 @@ onMounted(() => { loadList(); loadVideos() })
 .page-header { display:flex; justify-content:space-between; align-items:center; }
 .header-left { display:flex; align-items:center; gap:12px; }
 .graph-steps { margin:8px 0 24px; padding:16px 8px; background:#f7f9fc; border-radius:12px; }
+.agent-tip { font-size:13px; color:#64748b; line-height:1.7; margin-bottom:14px; }
+.result-panel { margin-top:8px; }
 .agent-form { margin-bottom:8px; }
+.memory-tip { font-size:12px; color:#94a3b8; line-height:1.5; margin-top:4px; }
 .plan-panel { margin-top:8px; }
 .risk-row { display:flex; align-items:center; margin:12px 0; }
 .risk-label { color:#e6a23c; font-weight:600; white-space:nowrap; }

@@ -37,6 +37,9 @@ def create_ad_data(item: AdDataCreate, db: Session = Depends(get_db)):
     db.add(db_item)
     db.commit()
     db.refresh(db_item)
+    # 新增投流数据后异步触发复盘智能体（不阻塞本次请求）
+    from ai_workflow.agent_graph import trigger_ad_review_background
+    trigger_ad_review_background()
     return db_item
 
 
@@ -265,6 +268,10 @@ async def import_ad_data(file: UploadFile = File(...), db: Session = Depends(get
             "message": "" if video_id else "未匹配到视频任务，已留空关联",
         })
     db.commit()
+    # 导入完成后异步触发复盘智能体，自动为这批新数据生成复盘结论
+    from ai_workflow.agent_graph import trigger_ad_review_background
+    if imported > 0:
+        trigger_ad_review_background()
     return {
         "message": f"导入完成：成功 {imported} 条，跳过 {skipped} 条",
         "imported": imported,

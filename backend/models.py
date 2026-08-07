@@ -154,6 +154,7 @@ class Review(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     review_period = Column(String(100), comment="复盘周期")
+    ad_id = Column(Integer, comment="关联投流数据ID")
     product_id = Column(Integer, ForeignKey("products.id"), comment="关联商品")
     video_id = Column(Integer, ForeignKey("videos.id"), comment="关联视频")
     product_performance = Column(Text, comment="商品表现")
@@ -163,6 +164,8 @@ class Review(Base):
     problem_analysis = Column(Text, comment="问题归因")
     next_action = Column(Text, comment="下次优化动作")
     owner = Column(String(100), comment="负责人")
+    decision = Column(String(50), comment="复盘决策")
+    summary = Column(Text, comment="总体判断")
     deadline = Column(DateTime, comment="截止时间")
     status = Column(String(50), default="待复盘", comment="状态")
     priority = Column(String(20), default="P1", comment="优先级")
@@ -192,4 +195,33 @@ class Knowledge(Base):
     notes = Column(Text, comment="备注")
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+
+class AgentRun(Base):
+    """智能体运行日志表"""
+    __tablename__ = "agent_runs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    run_type = Column(String(50), default="ad_review", comment="运行类型")
+    status = Column(String(50), default="completed", comment="运行状态")
+    products_processed = Column(Integer, default=0, comment="处理记录数")
+    summary = Column(Text, comment="运行摘要（JSON）")
+    created_at = Column(DateTime, default=datetime.now)
+
+
+class AgentMemory(Base):
+    """智能体经验记忆表：记录用户对智能体生成结果的认可/不认可，供以后生成参考。"""
+    __tablename__ = "agent_memories"
+
+    id = Column(Integer, primary_key=True, index=True)
+    review_id = Column(Integer, comment="关联复盘记录")
+    ad_id = Column(Integer, comment="关联投流数据")
+    video_id = Column(Integer, comment="关联视频")
+    memory_type = Column(String(20), comment="认可/不认可")
+    rating = Column(String(50), comment="评级")
+    decision = Column(String(50), comment="决策")
+    summary = Column(Text, comment="总体判断")
+    suggestions = Column(Text, comment="优化建议")
+    problems = Column(Text, comment="问题归因")
+    created_at = Column(DateTime, default=datetime.now)
 

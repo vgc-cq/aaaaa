@@ -27,7 +27,7 @@ def ensure_sqlite_columns():
         "scripts": {"title": "VARCHAR(200)", "owner": "VARCHAR(100)", "priority": "VARCHAR(20) DEFAULT 'P1'", "notes": "TEXT"},
         "videos": {"priority": "VARCHAR(20) DEFAULT 'P1'", "notes": "TEXT", "generate_task_id": "VARCHAR(100)", "generate_status": "VARCHAR(50)", "video_url": "TEXT", "script_title": "VARCHAR(200)", "product_id": "INTEGER", "product_name": "VARCHAR(200)"},
         "ad_data": {"ad_date": "VARCHAR(20)", "content_direction": "VARCHAR(200)", "play_count": "INTEGER DEFAULT 0", "bounce_rate_2s": "FLOAT DEFAULT 0", "completion_rate_5s": "FLOAT DEFAULT 0", "completion_rate": "FLOAT DEFAULT 0", "feedback": "TEXT", "owner": "VARCHAR(100)", "status": "VARCHAR(50) DEFAULT '投放中'", "priority": "VARCHAR(20) DEFAULT 'P1'"},
-        "reviews": {"product_id": "INTEGER", "video_id": "INTEGER", "status": "VARCHAR(50) DEFAULT '待复盘'", "priority": "VARCHAR(20) DEFAULT 'P1'", "review_level": "VARCHAR(50)"},
+        "reviews": {"ad_id": "INTEGER", "product_id": "INTEGER", "video_id": "INTEGER", "status": "VARCHAR(50) DEFAULT '待复盘'", "priority": "VARCHAR(20) DEFAULT 'P1'", "review_level": "VARCHAR(50)", "decision": "VARCHAR(50)", "summary": "TEXT"},
         "knowledge": {"status": "VARCHAR(50) DEFAULT '已生效'", "priority": "VARCHAR(20) DEFAULT 'P1'", "review_status": "VARCHAR(50) DEFAULT '已审核'", "target_user": "VARCHAR(100)", "expiry_reminder": "DATETIME", "notes": "TEXT"},
     }
     with engine.begin() as conn:

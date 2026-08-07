@@ -1,33 +1,40 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from ai_workflow.agent_graph import execute_agent, run_agent
+from ai_workflow.agent_graph import REVIEW_BATCH_LIMIT, run_ad_review_agent
 from database import get_db
+from models import AgentRun
 
 router = APIRouter()
 
 
-class AgentRunInput(BaseModel):
-    goal: str = "Review all ad data and create prioritized optimization actions"
-    video_id: int | None = None
-
-
-class AgentExecuteInput(BaseModel):
-    plan: dict
-    approved_indexes: list[int] = []
+class AdReviewRunInput(BaseModel):
+    limit: int | None = None
+    force: bool = False
 
 
 @router.post("/run")
-def run_autonomous_agent(payload: AgentRunInput, db: Session = Depends(get_db)):
-    result = run_agent(db, payload.goal, payload.video_id)
-    if result.get("status") == "empty":
-        raise HTTPException(status_code=404, detail=result.get("message"))
-    return result
+def run_ad_review(payload: AdReviewRunInput | None = None, db: Session = Depends(get_db)):
+    """一键复盘：自动扫描并复盘所有未复盘的投流数据，建议直接返回。"""
+    limit = payload.limit if payload else None
+    force = bool(payload.force) if payload else False
+    return run_ad_review_agent(db, int(limit) if limit else REVIEW_BATCH_LIMIT, force=force)
 
 
-@router.post("/execute")
-def execute_autonomous_agent(payload: AgentExecuteInput, db: Session = Depends(get_db)):
-    if not payload.approved_indexes:
-        raise HTTPException(status_code=400, detail="Select at least one approved action")
-    return execute_agent(db, payload.plan, payload.approved_indexes)
+@router.get("/logs")
+def ad_review_logs(limit: int = 10, db: Session = Depends(get_db)):
+    """最近投流复盘智能体运行记录。"""
+    import json
+
+    rows = db.query(AgentRun).filter(AgentRun.run_type == "ad_review").order_by(AgentRun.id.desc()).limit(limit).all()
+    return [
+        {
+            "id": r.id,
+            "status": r.status,
+            "products_processed": r.products_processed,
+            "summary": json.loads(r.summary) if r.summary else {},
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+        }
+        for r in rows
+    ]

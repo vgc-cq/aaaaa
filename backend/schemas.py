@@ -175,8 +175,11 @@ class AdDataOut(AdDataBase):
 # ---- Review ----
 class ReviewBase(BaseModel):
     review_period: str
+    ad_id: Optional[int] = None
     product_id: Optional[int] = None
     video_id: Optional[int] = None
+    video_code: Optional[str] = None
+    content_direction: Optional[str] = None
     product_performance: Optional[str] = None
     content_performance: Optional[str] = None
     video_performance: Optional[str] = None
@@ -184,6 +187,8 @@ class ReviewBase(BaseModel):
     problem_analysis: Optional[str] = None
     next_action: Optional[str] = None
     owner: Optional[str] = None
+    decision: Optional[str] = None
+    summary: Optional[str] = None
     deadline: Optional[datetime] = None
     status: Optional[str] = "待复盘"
     priority: Optional[str] = "P1"

@@ -94,8 +94,8 @@ export const reviewAgentApi = {
 }
 
 export const autonomousReviewAgentApi = {
-  run: (data = {}) => api.post('/review-agent/run', data, { timeout: 180000 }),
-  execute: (data) => api.post('/review-agent/execute', data),
+  run: (data = {}) => api.post('/review-agent/run', data, { timeout: 600000 }),
+  logs: (params) => api.get('/review-agent/logs', { params }),
 }
 
 // 知识库

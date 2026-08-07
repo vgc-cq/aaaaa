@@ -66,6 +66,9 @@ def startup():
         init_mock_data(db)
     finally:
         db.close()
+    # 启动投流数据复盘智能体定时任务（间隔由 REVIEW_INTERVAL_MINUTES 控制，0 表示关闭）
+    from ai_workflow.agent_graph import start_review_scheduler
+    start_review_scheduler()
 
 
 if __name__ == "__main__":
