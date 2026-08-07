@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from database import engine, Base, ensure_sqlite_columns
 from routers import products, content, scripts, videos, ads, reviews, knowledge, review_agent
-from ai_workflow import workflow, agents, vision
+from ai_workflow import vision
 from services import analysis, excel_export
 
 # 创建数据库表并补齐旧库字段
@@ -44,8 +44,6 @@ app.include_router(ads.router, prefix="/api/ads", tags=["投流数据"])
 app.include_router(reviews.router, prefix="/api/reviews", tags=["数据复盘"])
 app.include_router(review_agent.router, prefix="/api/review-agent", tags=["自主复盘智能体"])
 app.include_router(knowledge.router, prefix="/api/knowledge", tags=["知识库"])
-app.include_router(workflow.router, prefix="/api/ai", tags=["AI工作流"])
-app.include_router(agents.router, prefix="/api/agents", tags=["智能体"])
 app.include_router(vision.router, prefix="/api/ai", tags=["视觉内容拆解"])
 app.include_router(analysis.router, prefix="/api/analysis", tags=["数据分析"])
 app.include_router(excel_export.router, prefix="/api/export", tags=["数据导出"])

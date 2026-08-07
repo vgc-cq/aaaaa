@@ -14,61 +14,102 @@
         </div>
       </template>
 
-      <!-- LangGraph 状态图：节点随运行推进高亮 -->
-      <el-steps :active="agentStep" align-center finish-status="success" class="graph-steps">
-        <el-step title="读取数据" description="扫描未复盘投流" />
-        <el-step title="指标计算" description="ROI/CTR/CVR（规则）" />
-        <el-step title="AI 复盘" description="DeepSeek 结论与建议" />
-        <el-step title="写回建议" description="ad_data + 复盘表" />
-        <el-step title="记录日志" description="agent_runs" />
-      </el-steps>
+      <!-- LangGraph 节点卡片：每个节点实时显示状态与真实输出 -->
+      <div class="node-flow">
+        <template v-for="(card, idx) in NODE_CARDS" :key="card.key">
+          <div class="node-card" :class="nodeCardClass(card.key)">
+            <div class="node-card-head">
+              <span class="node-index">{{ idx + 1 }}</span>
+              <div class="node-card-title">
+                <div class="node-name">{{ card.title }}</div>
+                <div class="node-desc">{{ card.desc }}</div>
+              </div>
+              <span v-if="nodeStates[card.key] === 'running'" class="status-spinner" />
+              <span v-else-if="nodeStates[card.key] === 'success'" class="status-dot status-ok">✓</span>
+              <span v-else-if="nodeStates[card.key] === 'skipped'" class="status-dot status-skip">–</span>
+              <span v-else class="status-dot status-pending" />
+            </div>
+
+            <div v-if="nodeStates[card.key] === 'running'" class="node-output running-note">{{ runningText(card.key) }}</div>
+
+            <div v-else-if="nodeStates[card.key] === 'success' && nodeOutputs[card.key]" class="node-output">
+              <!-- 读取数据：扫描到的投流 -->
+              <template v-if="card.key === 'load_data'">
+                <div class="node-message">{{ nodeOutputs[card.key].message }}</div>
+                <template v-if="nodeOutputs[card.key].items.length">
+                  <table class="node-table">
+                    <tr><th>视频/投流</th><th>内容方向</th><th>消耗</th><th>成交</th></tr>
+                    <tr v-for="it in nodeOutputs[card.key].items.slice(0, 6)" :key="it.ad_id">
+                      <td>{{ it.video_code || `投流#${it.ad_id}` }}</td>
+                      <td class="ellipsis">{{ it.content_direction || '-' }}</td>
+                      <td>{{ it.spend ?? '-' }}</td>
+                      <td>{{ it.revenue ?? '-' }}</td>
+                    </tr>
+                  </table>
+                  <div v-if="nodeOutputs[card.key].items.length > 6" class="node-more">等共 {{ nodeOutputs[card.key].count }} 条</div>
+                </template>
+              </template>
+
+              <!-- 指标计算：规则算出的指标与异常 -->
+              <template v-else-if="card.key === 'analyze'">
+                <table class="node-table">
+                  <tr><th>视频</th><th>ROI</th><th>CTR%</th><th>异常</th><th>规则决策</th></tr>
+                  <tr v-for="it in nodeOutputs[card.key].items.slice(0, 6)" :key="it.ad_id">
+                    <td>{{ it.video_code || `投流#${it.ad_id}` }}</td>
+                    <td>{{ it.roi ?? '-' }}</td>
+                    <td>{{ it.ctr ?? '-' }}</td>
+                    <td>{{ it.issues }}</td>
+                    <td class="ellipsis">{{ it.decision }}</td>
+                  </tr>
+                </table>
+                <div v-if="nodeOutputs[card.key].items.length > 6" class="node-more">等共 {{ nodeOutputs[card.key].count }} 条</div>
+              </template>
+
+              <!-- AI 复盘：DeepSeek 结论 -->
+              <template v-else-if="card.key === 'review'">
+                <div v-for="it in nodeOutputs[card.key].items.slice(0, 4)" :key="it.ad_id" class="review-item">
+                  <div class="review-item-head">
+                    <b>{{ it.video_code || `投流#${it.ad_id}` }}</b>
+                    <el-tag :type="ratingTagType(it.rating)" size="small">{{ it.rating || '-' }}</el-tag>
+                    <span class="review-decision">{{ it.decision || '-' }}</span>
+                    <span v-if="it.self_score != null" class="review-score">自检 {{ it.self_score }} 分</span>
+                  </div>
+                  <div class="review-summary">{{ it.summary || '-' }}</div>
+                  <div v-if="(it.suggestions || []).length" class="review-suggestions">建议：{{ it.suggestions.slice(0, 2).join('；') }}</div>
+                </div>
+                <div v-if="nodeOutputs[card.key].items.length > 4" class="node-more">等共 {{ nodeOutputs[card.key].count }} 条</div>
+              </template>
+
+              <!-- 写回建议 -->
+              <template v-else-if="card.key === 'save'">
+                <div class="node-message">已写回 {{ nodeOutputs[card.key].saved_count }} 条投流建议，并生成对应复盘记录（自动关联商品/内容/视频）</div>
+              </template>
+
+              <!-- 记录日志 -->
+              <template v-else-if="card.key === 'record'">
+                <div class="node-message">运行日志已写入 agent_runs：运行ID {{ nodeOutputs[card.key].run_log_id }}，处理 {{ nodeOutputs[card.key].processed }} 条</div>
+              </template>
+            </div>
+
+            <div v-else-if="nodeStates[card.key] === 'skipped'" class="node-output skipped-note">本轮无数据，节点未执行</div>
+          </div>
+        </template>
+      </div>
 
       <div class="agent-tip">
         智能体会自动扫描"还没有复盘建议"的投流数据，逐条计算指标并生成复盘结论与优化建议
         （建议直接给出，无需人工审批）。后台也会按设定间隔自动巡检（backend/.env 的 REVIEW_INTERVAL_MINUTES 控制）。
       </div>
       <el-form inline>
-        <el-form-item label="每批数量">
-          <el-input-number v-model="reviewLimit" :min="1" :max="20" />
-        </el-form-item>
-        <el-form-item label="重新复盘">
+        <el-form-item>
           <el-checkbox v-model="reviewForce">强制重新复盘（含已复盘）</el-checkbox>
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" :loading="running" @click="runAgent">复盘未复盘投流数据</el-button>
-          <el-button :disabled="running" @click="loadLogs">刷新记录</el-button>
+          <el-button type="primary" :loading="running" @click="runAgent">开始复盘</el-button>
         </el-form-item>
       </el-form>
 
-      <div v-if="reviewResult" class="result-panel">
-        <el-divider content-position="left">本次复盘结果（建议直接给出）</el-divider>
-        <el-alert :title="reviewResult.message" type="success" :closable="false" show-icon />
-        <el-table :data="reviewResult.results" size="small" border stripe style="margin-top:12px">
-          <el-table-column label="视频" width="110">
-            <template #default="{ row }">{{ row.video_code || `视频#${row.video_id}` }}</template>
-          </el-table-column>
-          <el-table-column prop="content_direction" label="内容方向" min-width="140" show-overflow-tooltip />
-          <el-table-column label="ROI" width="80">
-            <template #default="{ row }">{{ row.metrics?.roi ?? '-' }}</template>
-          </el-table-column>
-          <el-table-column label="评级" width="80">
-            <template #default="{ row }">
-              <el-tag :type="ratingTagType(row.review?.rating)" size="small">{{ row.review?.rating || '-' }}</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="决策" width="110">
-            <template #default="{ row }">{{ row.review?.decision || '-' }}</template>
-          </el-table-column>
-          <el-table-column label="总体判断" min-width="180" show-overflow-tooltip>
-            <template #default="{ row }">{{ row.review?.summary || '-' }}</template>
-          </el-table-column>
-          <el-table-column label="优化建议" min-width="260" show-overflow-tooltip>
-            <template #default="{ row }">{{ (row.review?.suggestions || []).join('；') || '-' }}</template>
-          </el-table-column>
-        </el-table>
-      </div>
-
-      <el-divider content-position="left">最近复盘运行记录</el-divider>
+      <el-divider content-position="left">最近复盘运行记录（点最右侧箭头查看本次运行结果）</el-divider>
       <el-table :data="logs" size="small" border>
         <el-table-column prop="created_at" label="时间" min-width="170" />
         <el-table-column prop="status" label="状态" width="100" />
@@ -76,7 +117,39 @@
         <el-table-column label="说明" min-width="220">
           <template #default="{ row }">{{ row.summary?.message || '-' }}</template>
         </el-table-column>
+        <el-table-column type="expand" width="50">
+          <template #default="{ row }">
+            <div class="expand-results">
+              <div class="expand-head">{{ row.summary?.message || '本次运行结果' }}</div>
+              <el-table v-if="(row.summary?.results || []).length" :data="row.summary.results" size="small" border stripe>
+                <el-table-column label="视频" width="110">
+                  <template #default="{ row: r }">{{ r.video_code || `视频#${r.video_id}` }}</template>
+                </el-table-column>
+                <el-table-column prop="content_direction" label="内容方向" min-width="140" show-overflow-tooltip />
+                <el-table-column label="ROI" width="80">
+                  <template #default="{ row: r }">{{ r.metrics?.roi ?? '-' }}</template>
+                </el-table-column>
+                <el-table-column label="评级" width="80">
+                  <template #default="{ row: r }">
+                    <el-tag :type="ratingTagType(r.review?.rating)" size="small">{{ r.review?.rating || '-' }}</el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column label="决策" width="110">
+                  <template #default="{ row: r }">{{ r.review?.decision || '-' }}</template>
+                </el-table-column>
+                <el-table-column label="总体判断" min-width="180" show-overflow-tooltip>
+                  <template #default="{ row: r }">{{ r.review?.summary || '-' }}</template>
+                </el-table-column>
+                <el-table-column label="优化建议" min-width="260" show-overflow-tooltip>
+                  <template #default="{ row: r }">{{ (r.review?.suggestions || []).join('；') || '-' }}</template>
+                </el-table-column>
+              </el-table>
+              <div v-else class="expand-empty">本次运行没有生成复盘结果（可能没有未复盘数据，或运行失败）</div>
+            </div>
+          </template>
+        </el-table-column>
       </el-table>
+
     </el-card>
 
     <!-- ============ 复盘记录表 ============ -->
@@ -153,7 +226,7 @@
                 <el-option label="不认可" value="不认可" />
                 <el-option label="已完成" value="已完成" />
               </el-select>
-              <div class="memory-tip">选择"认可/不认可"会写入智能体经验记忆，影响以后生成</div>
+              <div class="memory-tip">选择"认可"会写入经验记忆，并沉淀到知识库（标记已生效、全系统可查）；选择"不认可"只写入记忆，避免以后输出类似结论</div>
             </el-form-item>
           </el-col>
         </el-row>
@@ -199,7 +272,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { autonomousReviewAgentApi, reviewsApi } from '../api'
+import { reviewsApi } from '../api'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 // ---------- 复盘记录表 ----------
@@ -251,23 +324,48 @@ const handleBatchDelete = async () => {
   }
 }
 
-// ---------- 投流复盘智能体（LangGraph） ----------
-const reviewLimit = ref(5)
+// ---------- 投流复盘智能体（LangGraph 节点卡片） ----------
+const NODE_CARDS = [
+  { key: 'load_data', title: '读取数据', desc: '扫描未复盘投流' },
+  { key: 'analyze', title: '指标计算', desc: 'ROI/CTR/CVR（规则）' },
+  { key: 'review', title: 'AI 复盘', desc: 'DeepSeek 结论与建议' },
+  { key: 'save', title: '写回建议', desc: 'ad_data + 复盘表' },
+  { key: 'record', title: '记录日志', desc: 'agent_runs' },
+]
+
+const NODE_RUNNING_TEXT = {
+  load_data: '正在扫描未复盘的投流数据…',
+  analyze: '正在逐条计算指标与异常…',
+  review: 'DeepSeek 正在生成复盘结论（含自检评分）…',
+  save: '正在写回复盘建议并生成复盘记录…',
+  record: '正在写入运行日志…',
+}
+
 const reviewForce = ref(false)
 const running = ref(false)
-const agentStep = ref(0) // el-steps active：0 未开始 → 5 全部完成
-const reviewResult = ref(null)
+const nodeStates = ref({})
+const nodeOutputs = ref({})
 const logs = ref([])
 
+const runningText = (key) => NODE_RUNNING_TEXT[key] || '运行中…'
+
+const nodeCardClass = (key) => {
+  const s = nodeStates.value[key]
+  if (s === 'running') return 'node-running'
+  if (s === 'success') return 'node-success'
+  if (s === 'skipped') return 'node-skipped'
+  return ''
+}
+
 const statusText = computed(() => {
-  if (agentStep.value === 0) return '待运行'
-  if (agentStep.value < 5) return '智能体运行中…'
-  return '复盘完成'
+  if (running.value || Object.values(nodeStates.value).includes('running')) return '智能体运行中…'
+  if (Object.values(nodeStates.value).some(s => s === 'success' || s === 'skipped')) return '复盘完成'
+  return '待运行'
 })
 const statusTagType = computed(() => {
-  if (agentStep.value === 0) return 'info'
-  if (agentStep.value < 5) return 'warning'
-  return 'success'
+  if (running.value || Object.values(nodeStates.value).includes('running')) return 'warning'
+  if (Object.values(nodeStates.value).some(s => s === 'success' || s === 'skipped')) return 'success'
+  return 'info'
 })
 const ratingTagType = (rating) => {
   if (rating === '优秀') return 'success'
@@ -275,29 +373,65 @@ const ratingTagType = (rating) => {
   return 'warning'
 }
 
-const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms))
+const handleAgentEvent = (event) => {
+  if (!event) return
+  if (event.event === 'node') {
+    const key = event.node
+    nodeStates.value[key] = 'success'
+    nodeOutputs.value[key] = event.output
+    const idx = NODE_CARDS.findIndex(c => c.key === key)
+    const next = NODE_CARDS[idx + 1]
+    if (next) nodeStates.value[next.key] = 'running'
+  } else if (event.event === 'complete') {
+    for (const card of NODE_CARDS) {
+      const s = nodeStates.value[card.key]
+      if (!s || s === 'running') nodeStates.value[card.key] = s ? 'success' : 'skipped'
+    }
+    if ((event.results || []).length === 0) ElMessage.info(event.message || '没有未复盘的投流数据')
+    else ElMessage.success(`复盘完成：${event.processed} 条投流数据`)
+    loadLogs()
+  } else if (event.event === 'error') {
+    ElMessage.error(event.detail || '复盘失败')
+  }
+}
 
 const runAgent = async () => {
   running.value = true
-  reviewResult.value = null
-  agentStep.value = 0
+  nodeStates.value = {}
+  nodeOutputs.value = {}
+  nodeStates.value.load_data = 'running'
   try {
-    agentStep.value = 1
-    await delay(400)
-    agentStep.value = 2
-    await delay(400)
-    agentStep.value = 3
-    const res = await autonomousReviewAgentApi.run({ limit: reviewLimit.value, force: reviewForce.value })
-    agentStep.value = 4
-    await delay(300)
-    agentStep.value = 5
-    reviewResult.value = res.data
-    if ((res.data.results || []).length === 0) ElMessage.info(res.data.message || '没有未复盘的投流数据')
-    else ElMessage.success(`复盘完成：${res.data.processed} 条投流数据`)
-    await loadLogs()
+    const res = await fetch('/api/review-agent/run/stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ force: reviewForce.value }),
+    })
+    if (!res.ok || !res.body) {
+      const text = await res.text().catch(() => '')
+      throw new Error(text || `接口返回 ${res.status}`)
+    }
+    const reader = res.body.getReader()
+    const decoder = new TextDecoder('utf-8')
+    let buffer = ''
+    let streamDone = false
+    while (!streamDone) {
+      const { value, done } = await reader.read()
+      streamDone = done
+      buffer += decoder.decode(value || new Uint8Array(), { stream: !done })
+      let sep
+      while ((sep = buffer.indexOf('\n\n')) >= 0) {
+        const raw = buffer.slice(0, sep)
+        buffer = buffer.slice(sep + 2)
+        const line = raw.split('\n').find(l => l.startsWith('data: '))
+        if (!line) continue
+        try {
+          handleAgentEvent(JSON.parse(line.slice(6)))
+        } catch { /* 忽略无法解析的帧 */ }
+      }
+    }
   } catch (e) {
-    agentStep.value = 0
-    ElMessage.error(e.response?.data?.detail || '复盘失败')
+    ElMessage.error('复盘失败：' + (e.message || '请稍后重试'))
+    nodeStates.value = {}
   } finally {
     running.value = false
   }
@@ -305,14 +439,14 @@ const runAgent = async () => {
 
 const loadLogs = async () => {
   try {
-    const res = await autonomousReviewAgentApi.logs({ limit: 10 })
-    logs.value = res.data
+    const res = await fetch('/api/review-agent/logs?limit=10')
+    logs.value = await res.json()
   } catch (e) { /* 忽略 */ }
 }
 
 const clearResult = () => {
-  reviewResult.value = null
-  agentStep.value = 0
+  nodeStates.value = {}
+  nodeOutputs.value = {}
 }
 
 onMounted(() => { loadList(); loadLogs() })
@@ -323,9 +457,46 @@ onMounted(() => { loadList(); loadLogs() })
 .table-card { margin-top:20px; }
 .page-header { display:flex; justify-content:space-between; align-items:center; }
 .header-left { display:flex; align-items:center; gap:12px; }
-.graph-steps { margin:8px 0 24px; padding:16px 8px; background:#f7f9fc; border-radius:12px; }
+.node-flow { display:flex; flex-wrap:wrap; gap:12px; margin:14px 0 4px; }
+.node-card { flex:1 1 200px; min-width:200px; background:#fff; border:1px solid #e3e8f0; border-radius:12px; padding:12px; transition:all .2s; }
+.node-card-head { display:flex; align-items:center; gap:8px; }
+.node-index { width:20px; height:20px; flex:0 0 20px; border-radius:50%; background:#eef2f8; color:#5f6673; font-size:12px; font-weight:700; display:inline-flex; align-items:center; justify-content:center; }
+.node-card-title { flex:1; min-width:0; }
+.node-name { font-size:14px; font-weight:600; color:#1f2937; }
+.node-desc { font-size:12px; color:#94a3b8; margin-top:1px; }
+.node-running { border-color:#2454ff; box-shadow:0 0 0 3px rgba(36,84,255,.08); }
+.node-running .node-index { background:#2454ff; color:#fff; }
+.node-success { border-color:#b7e4c7; background:#fbfefc; }
+.node-success .node-index { background:#16a34a; color:#fff; }
+.node-skipped { opacity:.55; background:#fafbfc; }
+.status-spinner { width:14px; height:14px; flex:0 0 14px; border:2px solid #c7d4ff; border-top-color:#2454ff; border-radius:50%; animation:spin .8s linear infinite; }
+.status-dot { width:16px; height:16px; flex:0 0 16px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; }
+.status-ok { background:#e8f7ee; color:#16a34a; border:1px solid #b7e4c7; }
+.status-skip { background:#f3f4f6; color:#9ca3af; border:1px solid #e2e5ea; }
+.status-pending { background:#fff; border:1px solid #d8dee9; }
+@keyframes spin { to { transform:rotate(360deg); } }
+.node-output { margin-top:10px; max-height:230px; overflow:auto; font-size:12px; color:#475569; border-top:1px dashed #e5e9f0; padding-top:8px; }
+.node-message { line-height:1.6; }
+.running-note { color:#2454ff; border-top-color:#dbe4ff; }
+.skipped-note { color:#9ca3af; }
+.node-table { width:100%; border-collapse:collapse; font-size:11px; margin-top:4px; }
+.node-table th { text-align:left; color:#94a3b8; font-weight:500; padding:3px 4px; border-bottom:1px solid #eef2f8; white-space:nowrap; }
+.node-table td { padding:4px; border-bottom:1px solid #f4f6fa; white-space:nowrap; }
+.node-table td.ellipsis { max-width:90px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.node-more { margin-top:6px; color:#94a3b8; font-size:11px; }
+.review-item { margin-bottom:8px; }
+.review-item:last-child { margin-bottom:0; }
+.review-item-head { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+.review-item-head b { font-size:12px; color:#1f2937; }
+.review-decision { color:#e6a23c; font-size:11px; }
+.review-score { color:#16a34a; font-size:11px; margin-left:auto; }
+.review-summary { color:#475569; line-height:1.5; margin-top:3px; }
+.review-suggestions { color:#64748b; line-height:1.5; margin-top:2px; }
 .agent-tip { font-size:13px; color:#64748b; line-height:1.7; margin-bottom:14px; }
 .result-panel { margin-top:8px; }
+.expand-results { padding:6px 4px 2px; }
+.expand-head { font-size:13px; color:#1f2937; font-weight:600; margin-bottom:8px; }
+.expand-empty { font-size:13px; color:#94a3b8; padding:8px 4px; }
 .agent-form { margin-bottom:8px; }
 .memory-tip { font-size:12px; color:#94a3b8; line-height:1.5; margin-top:4px; }
 .plan-panel { margin-top:8px; }

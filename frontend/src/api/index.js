@@ -86,13 +86,6 @@ export const reviewsApi = {
 }
 
 // 复盘智能体
-export const reviewAgentApi = {
-  analyze: (data) => api.post('/reviews/agent/analyze', data),
-  save: (data) => api.post('/reviews/agent/save', data),
-  batchAnalyze: (data = {}) => api.post('/reviews/agent/batch_analyze', data, { timeout: 180000 }),
-  batchSave: (data) => api.post('/reviews/agent/batch_save', data),
-}
-
 export const autonomousReviewAgentApi = {
   run: (data = {}) => api.post('/review-agent/run', data, { timeout: 600000 }),
   logs: (params) => api.get('/review-agent/logs', { params }),
@@ -116,27 +109,6 @@ export const visionApi = {
     headers: { 'Content-Type': 'multipart/form-data' },
     timeout: 120000,
   }),
-}
-
-// AI 工作流
-export const aiApi = {
-  sellingPoints: (data) => api.post('/ai/workflow/step1_selling_points', data),
-  contentAngles: (data) => api.post('/ai/workflow/step2_content_angles', data),
-  scriptGeneration: (data) => api.post('/ai/workflow/step3_script_generation', data),
-  qualityCheck: (data) => api.post('/ai/workflow/step4_quality_check', data),
-  fullWorkflow: (data) => api.post('/ai/workflow/full', data),
-  saveResult: (data) => api.post('/ai/workflow/save_result', data),
-}
-
-// 智能体
-export const agentsApi = {
-  list: () => api.get('/agents/agents'),
-  adReview: (data) => api.post('/agents/agents/投流复盘助手', data),
-  productAnalysis: (data) => api.post('/agents/agents/选品分析助手', data),
-  scriptGen: (data) => api.post('/agents/agents/脚本生成助手', data),
-  videoQa: (data) => api.post('/agents/agents/视频质检助手', data),
-  customerService: (data) => api.post('/agents/agents/客服话术助手', data),
-  autoReview: (data) => api.post('/agents/agents/auto_review', data),
 }
 
 // 数据分析

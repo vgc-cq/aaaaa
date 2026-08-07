@@ -17,8 +17,6 @@
         <el-menu-item index="/ads"><el-icon><TrendCharts /></el-icon><span>投流数据</span></el-menu-item>
         <el-menu-item index="/reviews"><el-icon><DataAnalysis /></el-icon><span>数据复盘</span></el-menu-item>
         <el-menu-item index="/knowledge"><el-icon><Collection /></el-icon><span>知识库</span></el-menu-item>
-        <el-menu-item index="/ai-workflow"><el-icon><MagicStick /></el-icon><span>AI工作流</span></el-menu-item>
-        <el-menu-item index="/agent"><el-icon><Avatar /></el-icon><span>智能体</span></el-menu-item>
       </el-menu>
     </el-aside>
     <el-container class="content-shell">

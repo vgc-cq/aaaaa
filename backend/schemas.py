@@ -238,26 +238,3 @@ class KnowledgeOut(KnowledgeBase):
     class Config:
         from_attributes = True
 
-
-# ---- AI Workflow ----
-class AIWorkflowInput(BaseModel):
-    product_name: str
-    price_range: str
-    target_users: str
-    core_scenes: str
-    user_pain_points: str
-    selling_points: str
-
-
-class ScriptGenerationInput(BaseModel):
-    product_info: AIWorkflowInput
-    content_angle: str
-    video_duration: int = 30
-
-
-class AgentInput(BaseModel):
-    agent_type: str  # 投流复盘助手
-    video_data: dict
-    ad_data: dict
-    feedback: Optional[str] = None
-

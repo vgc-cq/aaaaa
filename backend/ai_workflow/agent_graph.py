@@ -30,14 +30,13 @@ from langgraph.graph import END, START, StateGraph
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
-from models import AdData, AgentMemory, AgentRun, Content, Product, Review, Script, Video
+from models import AdData, AgentMemory, AgentRun, Content, Knowledge, Product, Review, Script, Video
 from services.analysis import calculate_metrics, generate_decision, judge_anomaly
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "https://api.deepseek.com/v1")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "deepseek-chat")
 
-REVIEW_BATCH_LIMIT = int(os.getenv("REVIEW_BATCH_LIMIT", "5"))
 REVIEW_INTERVAL_MINUTES = int(os.getenv("REVIEW_INTERVAL_MINUTES", "10"))
 PASS_SCORE = 60          # 自检及格线
 MAX_GENERATE_ATTEMPTS = 3  # 自检不通过最多重新生成次数
@@ -52,6 +51,8 @@ class AdReviewState(TypedDict, total=False):
     trace: Annotated[list, operator.add]
     message: str
     run_log_id: int | None
+    saved_count: int
+    processed: int
 
 
 def scan_unreviewed_ads(db: Session, limit: int | None = None, force: bool = False) -> list[AdData]:
@@ -81,6 +82,9 @@ def build_review_prompt(record: dict) -> str:
     memory_text = ""
     if record.get("memory_context"):
         memory_text = "\n\n历史经验参考（用户反馈的记忆）：\n" + record["memory_context"]
+    knowledge_text = ""
+    if record.get("knowledge_context"):
+        knowledge_text = "\n\n知识库已生效经验（人工认可沉淀）：\n" + record["knowledge_context"]
     return f"""你是一位千川投流数据复盘专家。请对下面这条投流记录进行复盘，只输出 JSON，不要 Markdown。
 
 视频编号：{record.get('video_code') or '-'}
@@ -90,6 +94,7 @@ def build_review_prompt(record: dict) -> str:
 规则决策：{record.get('decision')}
 用户反馈：{record.get('feedback') or '无'}
 {memory_text}
+{knowledge_text}
 
 输出前先自检，按以下评分标准给自己打分（0-100）：
 - 评级/决策与数据一致（0-30分）
@@ -135,6 +140,22 @@ def _build_memory_context(db: Session, record: dict) -> str:
             f"[不认可经验] 评级{m.rating or '-'}，决策{m.decision or '-'}，"
             f"结论：{m.summary or ''}。用户不认可这类结论，请避免输出类似内容"
         )
+    return "\n".join(lines)
+
+
+def _build_knowledge_context(db: Session, limit: int = 3) -> str:
+    """把最近沉淀为"已生效"的复盘经验知识拼成上下文，指导本次生成。"""
+    rows = db.query(Knowledge).filter(
+        Knowledge.category == "复盘经验",
+        Knowledge.status == "已生效",
+    ).order_by(Knowledge.id.desc()).limit(limit).all()
+    lines = []
+    for k in rows:
+        effect = (k.usage_effect or "").strip()
+        line = f"[已沉淀知识] {k.source or '知识库'}：{k.content_summary or ''}"
+        if effect:
+            line += f"（建议：{effect[:200]}）"
+        lines.append(line)
     return "\n".join(lines)
 
 
@@ -207,6 +228,7 @@ def _call_llm_review(record: dict, feedback: str = "") -> dict:
             model=OPENAI_MODEL,
             temperature=0.3,
             max_tokens=2000,
+            timeout=60,
         )
         response = llm.invoke(prompt)
         plan = _parse_json_text(response.content or "")
@@ -287,6 +309,7 @@ def build_graph(db: Session, limit: int | None = None, force: bool = False):
         results = []
         for rec in state["ad_records"]:
             rec["memory_context"] = _build_memory_context(db, rec)
+            rec["knowledge_context"] = _build_knowledge_context(db)
             review = _generate_with_self_check(rec)
             rec["review"] = review
             results.append({
@@ -348,6 +371,7 @@ def build_graph(db: Session, limit: int | None = None, force: bool = False):
             ))
         db.commit()
         return {
+            "saved_count": len(state["ad_records"]),
             "trace": [_trace_step(state, "save_review", {}, {"count": len(state["ad_records"])}, index=len(state.get("trace") or []) + 1)],
         }
 
@@ -363,6 +387,7 @@ def build_graph(db: Session, limit: int | None = None, force: bool = False):
         db.refresh(log)
         return {
             "run_log_id": log.id,
+            "processed": len(state.get("results") or []),
             "trace": [_trace_step(state, "record_log", {}, {"run_id": log.id, "processed": len(state.get("results") or [])}, index=len(state.get("trace") or []) + 1)],
         }
 
@@ -398,6 +423,105 @@ def run_ad_review_agent(db: Session, limit: int | None = None, force: bool = Fal
     }
 
 
+def _safe_float(value):
+    try:
+        return round(float(value), 2) if value is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _serialize_node_output(node: str, output: dict) -> dict:
+    """把单个节点的 stream 输出转成前端节点卡片可渲染的 JSON。"""
+    if node == "load_data":
+        records = output.get("ad_records") or []
+        items = []
+        for rec in records:
+            ad = rec.get("ad")
+            video = rec.get("video")
+            items.append({
+                "ad_id": rec.get("ad_id"),
+                "video_id": rec.get("video_id"),
+                "video_code": getattr(video, "video_code", None) if video is not None else rec.get("video_code"),
+                "content_direction": getattr(ad, "content_direction", None) if ad is not None else None,
+                "spend": _safe_float(getattr(ad, "spend", None) if ad is not None else None),
+                "revenue": _safe_float(getattr(ad, "revenue", None) if ad is not None else None),
+            })
+        return {"message": output.get("message", ""), "count": len(items), "items": items}
+
+    if node == "analyze":
+        records = output.get("ad_records") or []
+        items = []
+        for rec in records:
+            metrics = rec.get("metrics") or {}
+            items.append({
+                "ad_id": rec.get("ad_id"),
+                "video_code": rec.get("video_code"),
+                "roi": metrics.get("roi"),
+                "ctr": metrics.get("ctr"),
+                "conversion_rate": metrics.get("conversion_rate"),
+                "cpa": metrics.get("cpa"),
+                "bounce_rate_2s": metrics.get("bounce_rate_2s"),
+                "issues": len(rec.get("issues") or []),
+                "decision": rec.get("decision"),
+            })
+        return {"count": len(items), "items": items}
+
+    if node == "review":
+        results = output.get("results") or []
+        items = []
+        for rec in results:
+            review = rec.get("review") or {}
+            items.append({
+                "ad_id": rec.get("ad_id"),
+                "video_code": rec.get("video_code"),
+                "rating": review.get("rating"),
+                "decision": review.get("decision"),
+                "summary": review.get("summary"),
+                "suggestions": review.get("suggestions") or [],
+                "problems": review.get("problems") or [],
+                "self_score": review.get("self_score"),
+            })
+        return {"count": len(items), "items": items}
+
+    if node == "save":
+        return {"saved_count": output.get("saved_count", 0)}
+
+    if node == "record":
+        return {"run_log_id": output.get("run_log_id"), "processed": output.get("processed", 0)}
+
+    return {"note": "该节点无可展示数据"}
+
+
+def stream_ad_review_agent(db: Session, limit: int | None = None, force: bool = False):
+    """按 LangGraph 节点逐个产出真实输出（供前端节点卡片实时点亮）。
+
+    每个节点完成后 yield：{"event": "node", "node": 节点名, "output": 可渲染数据}
+    全部节点跑完后 yield：{"event": "complete", ...最终结果}
+    """
+    app = build_graph(db, limit, force)
+    initial = {"ad_records": [], "results": [], "trace": [], "message": "", "run_log_id": None}
+    final_state = {}
+    for mode, data in app.stream(initial, stream_mode=["updates", "values"]):
+        if mode == "updates":
+            for node_name, node_output in data.items():
+                yield {
+                    "event": "node",
+                    "node": node_name,
+                    "output": _serialize_node_output(node_name, node_output),
+                }
+        else:
+            final_state = data or {}
+    yield {
+        "event": "complete",
+        "status": "completed",
+        "message": final_state.get("message", ""),
+        "processed": len(final_state.get("results") or []),
+        "results": final_state.get("results") or [],
+        "run_id": final_state.get("run_log_id"),
+        "trace": final_state.get("trace") or [],
+    }
+
+
 def _scheduler_loop():
     while not _review_stop.wait(REVIEW_INTERVAL_MINUTES * 60):
         try:
@@ -405,7 +529,8 @@ def _scheduler_loop():
             db = SessionLocal()
             try:
                 with _review_lock:
-                    run_ad_review_agent(db, REVIEW_BATCH_LIMIT)
+                    # 后台自动复盘：处理全部"未复盘"的投流数据（不再分批）
+                    run_ad_review_agent(db, None)
             finally:
                 db.close()
         except Exception:
@@ -428,7 +553,8 @@ def trigger_ad_review_background(limit: int | None = None):
             db = SessionLocal()
             try:
                 with _review_lock:
-                    run_ad_review_agent(db, limit or REVIEW_BATCH_LIMIT)
+                    # 数据进来后自动复盘：处理全部"未复盘"的投流数据（不再分批）
+                    run_ad_review_agent(db, None)
             finally:
                 db.close()
         except Exception:
