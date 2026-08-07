@@ -25,7 +25,6 @@
           <div class="eyebrow">短视频电商 AI 提效原型</div>
           <h1>{{ currentTitle }}</h1>
         </div>
-        <el-button type="primary" class="export-btn" @click="exportData"><el-icon><Download /></el-icon> 导出 Excel</el-button>
       </el-header>
       <el-main class="app-main">
         <router-view v-slot="{ Component }">
@@ -41,27 +40,10 @@
 <script setup>
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { exportApi } from './api'
-import { ElMessage } from 'element-plus'
 
 const route = useRoute()
 const currentRoute = computed(() => route.path)
 const currentTitle = computed(() => route.meta.title || '仪表盘')
-
-const exportData = async () => {
-  try {
-    const res = await exportApi.all()
-    const url = window.URL.createObjectURL(new Blob([res.data]))
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'ecommerce_data.xlsx'
-    a.click()
-    window.URL.revokeObjectURL(url)
-    ElMessage.success('导出成功')
-  } catch (e) {
-    ElMessage.error('导出失败，请检查后端是否已启动')
-  }
-}
 </script>
 
 <style>
@@ -94,7 +76,6 @@ body { background: radial-gradient(circle at 20% 10%, rgba(36,84,255,.16), trans
 .app-header { height: 88px; display:flex;align-items:center;justify-content:space-between; padding: 18px 28px; background: rgba(255,255,255,.72); backdrop-filter: blur(16px); border-bottom: 1px solid var(--line); }
 .eyebrow { color: var(--muted); font-size: 12px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 4px; }
 .app-header h1 { font-size: 26px; font-weight: 850; letter-spacing: -.5px; }
-.export-btn { border: 0; border-radius: 999px; padding: 18px 20px; background: linear-gradient(135deg, var(--blue), var(--cyan)); box-shadow: 0 12px 24px rgba(36,84,255,.22); }
 .app-main { height: calc(100vh - 88px); padding: 24px; background: transparent; overflow-y: auto; overflow-x: hidden; }
 .el-card { border: 1px solid var(--line) !important; border-radius: var(--radius) !important; background: var(--panel) !important; box-shadow: var(--shadow) !important; backdrop-filter: blur(14px); }
 .el-card__header { border-bottom: 1px solid var(--line) !important; font-weight: 700; }

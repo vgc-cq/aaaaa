@@ -46,6 +46,7 @@ export const scriptsApi = {
   update: (id, data) => api.put(`/scripts/${id}`, data),
   delete: (id) => api.delete(`/scripts/${id}`),
   batchDelete: (ids) => api.post('/scripts/batch_delete', { ids }),
+  batchReview: (ids, review_status) => api.post('/scripts/batch_review', { ids, review_status }),
   generate: (data) => api.post('/scripts/generate', data, { timeout: 300000 }),
 }
 

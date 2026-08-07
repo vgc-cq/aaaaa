@@ -61,7 +61,19 @@
         </el-table-column>
         <el-table-column label="审核状态" min-width="170">
           <template #default="{ row }">
-            <el-tag :type="groupStatusType(row)" size="small">{{ groupStatus(row) }}</el-tag>
+            <el-dropdown @command="(val) => handleGroupReview(row, val)">
+              <span class="status-tag-wrap">
+                <el-tag :type="groupStatusType(row)" size="small">{{ groupStatus(row) }}</el-tag>
+                <el-icon class="status-tag-arrow"><ArrowDown /></el-icon>
+              </span>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item command="待审核">待审核</el-dropdown-item>
+                  <el-dropdown-item command="已通过">已通过</el-dropdown-item>
+                  <el-dropdown-item command="已驳回">已驳回</el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
           </template>
         </el-table-column>
         <el-table-column type="expand" width="50">
@@ -311,6 +323,18 @@ const groupStatusType = (row) => {
   return s === '已通过' ? 'success' : s === '已驳回' ? 'danger' : 'warning'
 }
 
+const handleGroupReview = async (row, status) => {
+  const ids = row.scenes.map(s => s.id)
+  if (!ids.length) return
+  try {
+    const res = await scriptsApi.batchReview(ids, status)
+    ElMessage.success(res.data.message || '审核状态更新成功')
+    loadList()
+  } catch (e) {
+    ElMessage.error('更新失败：' + (e.response?.data?.detail || '请稍后重试'))
+  }
+}
+
 const onGenProductChange = () => {
   const matches = genProductId.value
     ? contentOptions.value.filter(c => c.product_id === genProductId.value)
@@ -442,6 +466,8 @@ onMounted(() => {
   color: #5f6673;
 }
 .actions-nowrap { white-space: nowrap; }
+.status-tag-wrap { display:inline-flex; align-items:center; gap:5px; cursor:pointer; }
+.status-tag-arrow { font-size:12px; color:#94a3b8; }
 .ref-panel { background:#f8fafc; border:1px solid rgba(20,33,61,.08); border-radius:12px; padding:12px; margin-bottom:14px; }
 .ref-title { font-weight:700; color:#334155; margin-bottom:10px; }
 .detail-panel { padding-right:6px; }

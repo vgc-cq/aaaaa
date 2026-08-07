@@ -140,8 +140,17 @@
                 <el-table-column label="总体判断" min-width="180" show-overflow-tooltip>
                   <template #default="{ row: r }">{{ r.review?.summary || '-' }}</template>
                 </el-table-column>
-                <el-table-column label="优化建议" min-width="260" show-overflow-tooltip>
-                  <template #default="{ row: r }">{{ (r.review?.suggestions || []).join('；') || '-' }}</template>
+                <el-table-column label="优化建议" min-width="260">
+                  <template #default="{ row: r }">
+                    <el-tooltip placement="top" :teleported="true" :show-after="150" :offset="10" popper-class="suggestion-popper">
+                      <template #content>
+                        <div class="suggestion-tip">
+                          <div v-for="(s, i) in (r.review?.suggestions || [])" :key="i" class="suggestion-tip-line">{{ i + 1 }}. {{ s }}</div>
+                        </div>
+                      </template>
+                      <span class="suggestion-cell">{{ (r.review?.suggestions || []).join('；') || '-' }}</span>
+                    </el-tooltip>
+                  </template>
                 </el-table-column>
               </el-table>
               <div v-else class="expand-empty">本次运行没有生成复盘结果（可能没有未复盘数据，或运行失败）</div>
@@ -171,10 +180,9 @@
             <button class="summary-cell" type="button" @click="showDetail(row)">{{ row.review_period || '未命名周期' }}</button>
           </template>
         </el-table-column>
-        <el-table-column label="关联投流 / 视频" width="150">
+        <el-table-column label="关联投流" width="120">
           <template #default="{ row }">
             <span>投流#{{ row.ad_id ?? '-' }}</span>
-            <span style="margin-left:8px">视频#{{ row.video_id ?? '未关联' }}</span>
           </template>
         </el-table-column>
         <el-table-column label="视频" width="90">
@@ -495,6 +503,11 @@ onMounted(() => { loadList(); loadLogs() })
 .agent-tip { font-size:13px; color:#64748b; line-height:1.7; margin-bottom:14px; }
 .result-panel { margin-top:8px; }
 .expand-results { padding:6px 4px 2px; }
+.suggestion-cell { display:block; cursor:default; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.suggestion-popper { max-width: 480px; }
+.suggestion-tip { font-size: 12px; }
+.suggestion-tip-line { line-height: 1.6; margin-bottom: 4px; white-space: normal; word-break: break-word; }
+.suggestion-tip-line:last-child { margin-bottom: 0; }
 .expand-head { font-size:13px; color:#1f2937; font-weight:600; margin-bottom:8px; }
 .expand-empty { font-size:13px; color:#94a3b8; padding:8px 4px; }
 .agent-form { margin-bottom:8px; }

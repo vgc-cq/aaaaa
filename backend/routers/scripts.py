@@ -77,6 +77,26 @@ def batch_delete_scripts(data: BatchDeleteIn, db: Session = Depends(get_db)):
     return {"message": f"已删除 {len(items)} 条脚本记录"}
 
 
+class BatchReviewIn(BaseModel):
+    ids: list[int]
+    review_status: str
+
+
+@router.post("/batch_review")
+def batch_review_scripts(data: BatchReviewIn, db: Session = Depends(get_db)):
+    """批量审核：大标题选择审核状态后，组内所有分镜脚本同步更新。"""
+    ids = data.ids
+    if not ids:
+        raise HTTPException(status_code=400, detail="请先选择要审核的脚本")
+    if data.review_status not in ("待审核", "已通过", "已驳回"):
+        raise HTTPException(status_code=400, detail="无效的审核状态")
+    db.query(Script).filter(Script.id.in_(ids)).update(
+        {Script.review_status: data.review_status}, synchronize_session=False
+    )
+    db.commit()
+    return {"message": f"已更新 {len(ids)} 条分镜脚本的审核状态为「{data.review_status}」"}
+
+
 class ScriptGenerateIn(BaseModel):
     content_id: int
     product_id: int | None = None

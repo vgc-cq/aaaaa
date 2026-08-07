@@ -17,23 +17,18 @@
       </template>
       <el-table :data="list" stripe @selection-change="onSelectionChange">
         <el-table-column type="selection" width="45" />
-        <el-table-column prop="knowledge_code" label="编号" width="80" />
-        <el-table-column prop="category" label="分类" width="120">
-          <template #default="{ row }"><el-tag size="small">{{ row.category }}</el-tag></template>
-        </el-table-column>
-        <el-table-column prop="source" label="来源" width="100" />
-        <el-table-column prop="applicable_scene" label="适用场景" width="150" />
-        <el-table-column label="内容摘要" min-width="320">
+        <el-table-column prop="knowledge_code" label="编号" width="120" />
+        <el-table-column prop="source" label="来源" width="140" />
+        <el-table-column label="内容摘要" min-width="190">
           <template #default="{ row }">
             <div class="multi-line-cell summary-click" @click="showDetail(row)">{{ row.content_summary || '暂无内容' }}</div>
           </template>
         </el-table-column>
-        <el-table-column prop="prompt_version" label="版本" width="90" />
-        <el-table-column label="使用效果" width="150">
+        <el-table-column label="使用效果" width="190">
           <template #default="{ row }"><div class="multi-line-cell">{{ row.usage_effect || '-' }}</div></template>
         </el-table-column>
-        <el-table-column prop="updater" label="更新人" width="90" />
-        <el-table-column label="操作" width="240" fixed="right">
+        <el-table-column prop="updater" label="更新人" width="130" />
+        <el-table-column label="操作" width="190" fixed="right">
           <template #default="{ row }">
             <div class="action-row">
               <el-button class="action-btn" size="small" @click="showDetail(row)">详情</el-button>
