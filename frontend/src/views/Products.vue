@@ -14,12 +14,6 @@
           </div>
           <div>
             <el-button type="primary" @click="showDialog()" style="margin-right:12px">新增商品</el-button>
-            <el-button
-              type="success"
-              :disabled="selectedIds.length === 0"
-              :loading="aiSelecting"
-              @click="handleAiSelect"
-            >AI选品（已选 {{ selectedIds.length }}）</el-button>
           </div>
         </div>
       </template>

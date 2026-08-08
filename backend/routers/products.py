@@ -382,6 +382,10 @@ async def import_products(file: UploadFile = File(...), db: Session = Depends(ge
         })
 
     db.commit()
+    # 导入完成后异步触发商品智能体：自动评分 + 内容拆解 + 脚本分镜
+    from ai_workflow.product_agent import trigger_product_agent_background
+    if imported > 0:
+        trigger_product_agent_background()
     return {"total": len(results), "imported": imported, "skipped": skipped, "results": results}
 
 
@@ -431,6 +435,13 @@ def ai_select(data: dict = Body(...), db: Session = Depends(get_db)):
     return {"total": len(products), "results": results}
 
 
+@router.post("/agent/run")
+def run_product_agent_endpoint(limit: int = 3, db: Session = Depends(get_db)):
+    """手动触发商品智能体：先补全字段再评分，然后拆解 + 脚本分镜。"""
+    from ai_workflow.product_agent import run_product_agent
+    return run_product_agent(db, int(limit))
+
+
 @router.post("/import_document")
 async def import_product_document(file: UploadFile = File(...), db: Session = Depends(get_db)):
     """?? txt/docx/xlsx/csv??????????????????????"""
@@ -466,6 +477,9 @@ def create_product(product: ProductCreate, db: Session = Depends(get_db)):
     db.add(db_product)
     db.commit()
     db.refresh(db_product)
+    # 新建商品后异步触发商品智能体处理
+    from ai_workflow.product_agent import trigger_product_agent_background
+    trigger_product_agent_background()
     return db_product
 
 

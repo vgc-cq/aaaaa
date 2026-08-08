@@ -67,6 +67,9 @@ def startup():
     # 启动投流数据复盘智能体定时任务（间隔由 REVIEW_INTERVAL_MINUTES 控制，0 表示关闭）
     from ai_workflow.agent_graph import start_review_scheduler
     start_review_scheduler()
+    # 启动商品智能体定时巡检（间隔由 PRODUCT_CHECK_INTERVAL_MINUTES 控制，0 表示关闭）
+    from ai_workflow.product_agent import start_product_agent_scheduler
+    start_product_agent_scheduler()
 
 
 if __name__ == "__main__":

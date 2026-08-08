@@ -2,7 +2,9 @@
 from sqlalchemy.orm import Session
 from typing import List
 from database import get_db
-from models import Script
+import re
+
+from models import Knowledge, Product, Script
 from schemas import ScriptCreate, ScriptOut
 
 router = APIRouter()
@@ -40,8 +42,12 @@ def update_script(script_id: int, item: ScriptCreate, db: Session = Depends(get_
     db_item = db.query(Script).filter(Script.id == script_id).first()
     if not db_item:
         raise HTTPException(status_code=404, detail="脚本不存在")
+    old_status = db_item.review_status
     for key, value in item.model_dump(exclude_unset=True).items():
         setattr(db_item, key, value)
+    # 记忆：审核通过后把这次分镜沉淀到知识库（分类"拆解分镜"）
+    if db_item.review_status == "已通过" and db_item.review_status != old_status:
+        _save_approved_script_knowledge(db, [db_item])
     db.commit()
     db.refresh(db_item)
     return db_item
@@ -93,8 +99,48 @@ def batch_review_scripts(data: BatchReviewIn, db: Session = Depends(get_db)):
     db.query(Script).filter(Script.id.in_(ids)).update(
         {Script.review_status: data.review_status}, synchronize_session=False
     )
+    # 记忆：批量审核通过后把分镜沉淀到知识库
+    if data.review_status == "已通过":
+        items = db.query(Script).filter(Script.id.in_(ids)).all()
+        if items:
+            _save_approved_script_knowledge(db, items)
     db.commit()
     return {"message": f"已更新 {len(ids)} 条分镜脚本的审核状态为「{data.review_status}」"}
+
+
+def _next_knowledge_code(db: Session) -> str:
+    rows = db.query(Knowledge.knowledge_code).filter(Knowledge.knowledge_code.like("K%")).all()
+    max_num = 0
+    for (code,) in rows:
+        m = re.fullmatch(r"K(\d+)", str(code or ""))
+        if m:
+            max_num = max(max_num, int(m.group(1)))
+    return f"K{max_num + 1:03d}"
+
+
+def _save_approved_script_knowledge(db: Session, scripts: list) -> None:
+    """把审核通过的分镜沉淀到知识库，作为智能体生成脚本时的经验参考。"""
+    if not scripts:
+        return
+    first = scripts[0]
+    product = db.query(Product).filter(Product.id == first.product_id).first() if first.product_id else None
+    title = first.title or "未命名脚本"
+    scenes_summary = "；".join(f"{s.shot_time}:{str(s.scene_desc or '')[:20]}" for s in scripts[:5])
+    db.add(Knowledge(
+        knowledge_code=_next_knowledge_code(db),
+        category="拆解分镜",
+        source="脚本审核通过",
+        applicable_scene="脚本分镜生成参考",
+        content_summary=f"商品：{product.name if product else '-'}｜脚本：{title}｜分镜：{scenes_summary}",
+        prompt_version="script-approved-v1",
+        usage_effect="已通过人工审核",
+        updater="脚本审核",
+        status="已生效",
+        priority="P1",
+        review_status="已审核",
+        target_user="脚本编导",
+        notes="由审核通过的分镜沉淀，智能体生成时作为经验参考",
+    ))
 
 
 class ScriptGenerateIn(BaseModel):

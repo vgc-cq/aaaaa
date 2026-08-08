@@ -31,7 +31,6 @@
         <el-table-column label="复盘建议" min-width="240">
           <template #default="{ row }"><div class="multi-line-cell">{{ row.review_suggestion || '暂无复盘建议' }}</div></template>
         </el-table-column>
-        <el-table-column prop="priority" label="优先级" width="90"><template #default="{ row }"><el-tag :type="row.priority === 'P0' ? 'danger' : row.priority === 'P1' ? 'warning' : 'info'" size="small">{{ row.priority }}</el-tag></template></el-table-column>
         <el-table-column label="操作" width="240" fixed="right">
           <template #default="{ row }"><div class="action-row"><el-button class="action-btn" size="small" @click="showDetail(row)">详情</el-button><el-button class="action-btn" size="small" @click="showDialog(row)">编辑</el-button><el-button class="action-btn" size="small" @click="handleDelete(row.id)">删除</el-button></div></template>
         </el-table-column>
@@ -133,7 +132,7 @@ const loadList = async () => { const res = await adsApi.list(); list.value = res
 const loadVideos = async () => { const res = await videosApi.list({ limit: 500 }); videoList.value = res.data }
 const videoName = (id) => {
   const v = videoList.value.find(x => x.id === id)
-  return v ? `${v.video_code} ${v.script_title || ''}` : (id || '-')
+  return v ? v.video_code : (id || '-')
 }
 const showDetail = (row) => { currentDetail.value = row; detailVisible.value = true }
 const showDialog = (row) => {

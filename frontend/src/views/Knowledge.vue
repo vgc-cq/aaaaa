@@ -7,17 +7,12 @@
             <span style="font-weight:600">知识库 / 提示词库</span>
             <el-button type="danger" size="small" :disabled="selectedIds.length === 0" @click="handleBatchDelete">删除</el-button>
           </div>
-          <div>
-            <el-select v-model="filterCategory" placeholder="按分类筛选" clearable style="margin-right:10px;width:160px" @change="loadList">
-              <el-option v-for="c in categories" :key="c" :label="c" :value="c" />
-            </el-select>
-            <el-button type="primary" @click="showDialog()">新增知识</el-button>
-          </div>
         </div>
       </template>
       <el-table :data="list" stripe @selection-change="onSelectionChange">
         <el-table-column type="selection" width="45" />
         <el-table-column prop="knowledge_code" label="编号" width="120" />
+        <el-table-column prop="category" label="分类" width="120" />
         <el-table-column prop="source" label="来源" width="140" />
         <el-table-column label="内容摘要" min-width="190">
           <template #default="{ row }">

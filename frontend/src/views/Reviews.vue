@@ -169,7 +169,6 @@
             <span style="font-weight:600">复盘记录表</span>
             <el-button type="danger" size="small" :disabled="selectedIds.length === 0" @click="handleBatchDelete">删除</el-button>
           </div>
-          <el-button type="primary" @click="showDialog()">新增复盘</el-button>
         </div>
       </template>
 
@@ -182,11 +181,11 @@
         </el-table-column>
         <el-table-column label="关联投流" width="120">
           <template #default="{ row }">
-            <span>投流#{{ row.ad_id ?? '-' }}</span>
+            <span>投流ID{{ row.ad_id ?? '-' }}</span>
           </template>
         </el-table-column>
         <el-table-column label="视频" width="90">
-          <template #default="{ row }">{{ row.video_code || (row.video_id ? `视频#${row.video_id}` : '-') }}</template>
+          <template #default="{ row }">{{ row.video_code || row.video_id || '-' }}</template>
         </el-table-column>
         <el-table-column prop="content_direction" label="内容方向" min-width="130" show-overflow-tooltip />
         <el-table-column label="评级" width="80">
@@ -260,8 +259,8 @@
       <div v-if="currentDetail" class="detail-panel">
         <div class="detail-head">
           <el-tag>{{ currentDetail.review_period || '复盘' }}</el-tag>
-          <el-tag type="info">投流#{{ currentDetail.ad_id ?? '-' }}</el-tag>
-          <el-tag type="info">视频#{{ currentDetail.video_id ?? '未关联' }}</el-tag>
+          <el-tag type="info">投流ID{{ currentDetail.ad_id ?? '-' }}</el-tag>
+          <el-tag type="info">视频ID{{ currentDetail.video_id ?? '未关联' }}</el-tag>
           <strong>{{ currentDetail.owner || '未分配' }}</strong>
           <el-tag :type="reviewStatusTagType(currentDetail.status)" size="small">{{ currentDetail.status || '待处理' }}</el-tag>
         </div>
