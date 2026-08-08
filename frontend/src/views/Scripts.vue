@@ -53,8 +53,8 @@
         <el-table-column label="关联商品" min-width="170">
           <template #default="{ row }">{{ productName(row.product_id) }}</template>
         </el-table-column>
-        <el-table-column label="关联内容" min-width="170">
-          <template #default="{ row }">{{ contentName(row.content_id) }}</template>
+        <el-table-column label="关联内容" min-width="210">
+          <template #default="{ row }"><div class="content-scroll-3">{{ contentName(row.content_id) }}</div></template>
         </el-table-column>
         <el-table-column label="镜头数" min-width="170">
           <template #default="{ row }">{{ row.scenes.length }}</template>
@@ -475,4 +475,5 @@ onMounted(() => {
 .detail-head strong { font-size:20px; }
 .detail-panel h3 { margin:22px 0 10px; font-size:16px; }
 .detail-content { white-space:pre-wrap; word-break:break-word; line-height:1.8; background:#f6f8fb; border:1px solid rgba(20,33,61,.08); border-radius:14px; padding:16px; color:#334155; }
+.content-scroll-3 { max-height:calc(1.6em * 3); overflow-y:auto; line-height:1.6; white-space:pre-wrap; word-break:break-word; }
 </style>

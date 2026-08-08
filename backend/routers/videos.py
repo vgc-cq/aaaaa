@@ -185,6 +185,45 @@ def _build_multi_shot_prompt(shots: List[Script], product_name: str):
     return "\n".join(lines), duration
 
 
+def _parse_risk_terms(risk_words: str | None) -> list[str]:
+    """从商品风险词约束里提取禁用词（去掉"不得使用"等前缀，按分隔符拆分）。"""
+    text = re.sub(r"^(不得|禁止|避免|请勿)(使用|出现|出现)?[：:、，,;；\s]*", "", str(risk_words or ""))
+    return [t.strip() for t in re.split(r"[、，,;；\n]", text) if t.strip()]
+
+
+def _quality_items_text(shots: list, product: Product | None) -> str:
+    """按规则给脚本组做六维度质检（不调大模型），返回文本，供视频任务的"质检项"展示。"""
+    scenes = [s for s in shots if s is not None]
+    if not scenes:
+        return ""
+    texts = " ".join(f"{s.scene_desc or ''} {s.voiceover or ''} {s.subtitle or ''}" for s in scenes)
+
+    # 钩子力：第一个镜头是否有旁白/字幕
+    first = scenes[0]
+    hook_score = 90 if (first.voiceover or first.subtitle) else 60
+    # 节奏：镜头数量 5-6 最佳
+    n = len(scenes)
+    rhythm_score = 90 if n >= 5 else 80 if n >= 4 else 70 if n >= 2 else 60
+    # 卖点传达：有旁白/字幕的镜头占比
+    voiced = sum(1 for s in scenes if (s.voiceover or "").strip() or (s.subtitle or "").strip())
+    selling_score = 85 if voiced >= max(3, n - 1) else 75 if voiced >= 2 else 65
+    # 合规：检查商品风险词约束中的禁用词是否出现在文案里
+    terms = _parse_risk_terms(product.risk_words if product else None)
+    hits = [t for t in terms if t and t in texts]
+    compliance_score = 50 if hits else 90
+    # 字幕规范：有字幕的镜头占比
+    subbed = sum(1 for s in scenes if (s.subtitle or "").strip())
+    subtitle_score = 90 if subbed == n else 80 if subbed >= max(2, n // 2) else 70
+    # 转化引导：最后一个镜头是否含转化词
+    last = f"{scenes[-1].scene_desc or ''} {scenes[-1].voiceover or ''} {scenes[-1].subtitle or ''}"
+    conversion_score = 90 if any(w in last for w in ["收藏", "购物车", "下单", "点击", "购买", "优惠"]) else 70
+
+    return (
+        f"钩子力:{hook_score}分;节奏:{rhythm_score}分;卖点:{selling_score}分;"
+        f"合规:{compliance_score}分;字幕:{subtitle_score}分;转化:{conversion_score}分"
+    )
+
+
 @router.post("/wan/generate")
 def generate_video_with_wan(payload: WanGenerateIn, db: Session = Depends(get_db)):
     script = db.query(Script).filter(Script.id == payload.script_id).first()
@@ -235,6 +274,8 @@ def generate_video_with_wan(payload: WanGenerateIn, db: Session = Depends(get_db
         video.product_name = product_name
         video.material_status = "生成中"
         video.generate_tool = "通义万相"
+    # 脚本质检（六维度规则评分）写入视频任务的"质检项"
+    video.quality_items = _quality_items_text(shots, product)
     video.generate_task_id = task_id
     video.generate_status = "PENDING"
     video.video_url = None
