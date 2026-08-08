@@ -357,6 +357,10 @@ def content_breakdown(data: VisionBreakdownInput, db: Session = Depends(get_db))
         db.commit()
         db.refresh(content)
         saved = {"content_id": content.id, "content_code": content.content_code}
+        # 手动视频拆解完成后，触发商品智能体为该商品自动生成脚本分镜
+        if product:
+            from ai_workflow.product_agent import trigger_product_agent_background
+            trigger_product_agent_background()
 
     return {
         "source_type": data.source_type,

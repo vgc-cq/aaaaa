@@ -13,6 +13,7 @@
             >删除</el-button>
           </div>
           <div>
+            <el-button @click="openDirectionDialog" style="margin-right:12px">拆解方向</el-button>
             <el-button type="primary" @click="showDialog()" style="margin-right:12px">新增商品</el-button>
           </div>
         </div>
@@ -60,6 +61,24 @@
         </el-table-column>
       </el-table>
     </el-card>
+
+    <!-- 拆解方向：勾选 = 智能体自动拆解+分镜；未勾选 = 保留给人工视频拆解路线 -->
+    <el-dialog v-model="directionVisible" title="拆解方向" width="560px">
+      <el-alert
+        title="勾选的商品由智能体自动生成内容拆解和脚本分镜；未勾选的商品保留给人工视频拆解（拆解完成后智能体会自动补脚本分镜）。"
+        type="info" :closable="false" show-icon style="margin-bottom:12px"
+      />
+      <div class="direction-tip">已选品商品（{{ directionCandidates.length }} 个）：</div>
+      <el-checkbox-group v-model="directionSelected" class="direction-check-list">
+        <el-checkbox v-for="p in directionCandidates" :key="p.id" :label="p.id">
+          {{ p.product_code }} {{ p.name }}（{{ p.score ?? '-' }}分）
+        </el-checkbox>
+      </el-checkbox-group>
+      <template #footer>
+        <el-button @click="directionVisible = false">取消</el-button>
+        <el-button type="primary" :loading="directionSaving" @click="saveDirection">保存</el-button>
+      </template>
+    </el-dialog>
 
     <el-dialog v-model="dialogVisible" :title="form.id ? '编辑商品' : '新增商品'" width="780px">
       <el-tabs v-model="activeTab" v-if="!form.id">
@@ -250,6 +269,30 @@ const importFile = ref(null)
 const importing = ref(false)
 const importResult = ref(null)
 const selectedIds = ref([])
+const directionVisible = ref(false)
+const directionCandidates = ref([])
+const directionSelected = ref([])
+const directionSaving = ref(false)
+
+const openDirectionDialog = () => {
+  directionCandidates.value = list.value.filter(p => p.status === '已选品')
+  directionSelected.value = directionCandidates.value.filter(p => p.direction === 'auto').map(p => p.id)
+  directionVisible.value = true
+}
+
+const saveDirection = async () => {
+  directionSaving.value = true
+  try {
+    const ids = directionSelected.value
+    await productsApi.setDirection({ product_ids: ids, direction: 'auto' })
+    const manualIds = directionCandidates.value.map(p => p.id).filter(id => !ids.includes(id))
+    if (manualIds.length) await productsApi.setDirection({ product_ids: manualIds, direction: 'manual' })
+    ElMessage.success('拆解方向已保存，勾选商品开始自动拆解+分镜')
+    directionVisible.value = false
+    loadList()
+  } catch (e) { ElMessage.error(e.response?.data?.detail || '保存失败') }
+  finally { directionSaving.value = false }
+}
 const aiSelecting = ref(false)
 const aiResultVisible = ref(false)
 const aiResult = ref(null)
@@ -437,4 +480,6 @@ onMounted(loadList)
   max-height: calc(1.6em * 3);
   color: #5f6673;
 }
+.direction-tip { font-size:13px; color:#64748b; margin-bottom:10px; }
+.direction-check-list { display:flex; flex-direction:column; gap:8px; max-height:340px; overflow-y:auto; }
 </style>

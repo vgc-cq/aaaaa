@@ -23,6 +23,7 @@ export const productsApi = {
     return api.post('/products/import', fd, { timeout: 300000 })
   },
   aiSelect: (ids) => api.post('/products/ai_select', { product_ids: ids }, { timeout: 300000 }),
+  setDirection: (data) => api.post('/products/direction', data),
   batchDelete: (ids) => api.post('/products/batch_delete', { product_ids: ids }),
   todayTasks: () => api.get('/products/view/today'),
   kanban: () => api.get('/products/view/kanban'),

@@ -89,28 +89,36 @@ def scan_products_needing_work(db: Session, limit: int | None = None) -> list[di
         needs_enrich = any(not str(getattr(p, f) or "").strip() for f in ("target_users", "pain_points", "risk_words"))
         if p.status == "已淘汰" and not needs_enrich and not needs_score:
             continue
-        # 只有已选品才需要拆解+分镜；待评估/已淘汰只参与评分（不拆解分镜）
+        direction = (p.direction or "manual")
         is_selected = p.status == "已选品"
         has_content = db.query(Content.id).filter(Content.product_id == p.id).first() is not None
         has_script = db.query(Script.id).filter(Script.product_id == p.id).first() is not None
-        need_breakdown = is_selected and (not has_content or not has_script)
-        if not (needs_score or needs_enrich or need_breakdown):
+        # 勾选(auto)的已选品：自动拆解+分镜；未勾选(manual)的商品走视频拆解路线，
+        # 已有内容拆解但缺脚本时自动补脚本；未勾选且没拆解的不自动生成。
+        auto_breakdown = direction == "auto" and is_selected and (not has_content or not has_script)
+        manual_script = direction != "auto" and has_content and not has_script
+        if not (needs_score or needs_enrich or auto_breakdown or manual_script):
             continue
         missing = []
         if needs_score:
             missing.append("选品评分")
         if needs_enrich:
             missing.append("字段补全")
-        if need_breakdown:
+        if auto_breakdown:
             if not has_content:
                 missing.append("内容拆解")
             if not has_script:
                 missing.append("脚本分镜")
+        if manual_script:
+            missing.append("脚本分镜（手动拆解完成）")
         pending.append({
             "product": p,
             "missing": missing,
             "needs_score": needs_score or needs_enrich,
             "needs_enrich": needs_enrich,
+            "direction": direction,
+            "auto_breakdown": auto_breakdown,
+            "manual_script": manual_script,
             "has_content": has_content,
             "has_script": has_script,
         })
@@ -120,8 +128,9 @@ def scan_products_needing_work(db: Session, limit: int | None = None) -> list[di
         # 未评分的最优先，且最老的排前面（防止低 ID 商品一直被新商品挤掉）
         if item["needs_score"] or item["needs_enrich"]:
             return (0, p.id)
-        # 已评分：只有已选品在拆解队列，按月销热度从高到低（高热优质商品优先拆解分镜）
-        return (1, 0 - _sales_heat_value(p), 0 - float(p.score or 0), p.id)
+        # 已评分：勾选(auto)的优先，手动拆解补脚本的排后；同类按月销热度从高到低
+        rank = 0 if item.get("auto_breakdown") else 1
+        return (1, rank, 0 - _sales_heat_value(p), 0 - float(p.score or 0), p.id)
 
     pending.sort(key=_key)
     return pending[:limit] if limit else pending
@@ -465,13 +474,22 @@ def build_graph(db: Session, limit: int | None = None):
         steps = []
         for i, rec in enumerate(state["product_records"], 1):
             p = rec["product"]
-            if p.status == "已选品":
+            direction = rec.get("direction") or "manual"
+            if direction == "auto" and p.status == "已选品":
                 heat = _sales_heat_value(p)
                 rec["heat_value"] = heat
                 rec["detail_level"] = "detailed" if (heat >= 10000 or (p.score or 0) >= 90) else "standard"
+            elif direction != "auto" and rec.get("manual_script"):
+                # 视频拆解路线：人工拆解已完成，智能体只需补脚本（标准级）
+                rec["detail_level"] = "standard"
             else:
                 rec["detail_level"] = "skip"
-                rec["skip_reason"] = "已淘汰，不拆解" if p.status == "已淘汰" else "待评估，暂不拆解分镜（评分≥80后自动升级）"
+                if p.status == "已淘汰":
+                    rec["skip_reason"] = "已淘汰，不拆解"
+                elif p.status == "待评估":
+                    rec["skip_reason"] = "待评估，暂不拆解分镜（评分≥80后自动升级）"
+                else:
+                    rec["skip_reason"] = "未勾选拆解方向，等待人工视频拆解"
             records.append(rec)
             steps.append(_trace_step(state, "decide_detail", {"product_id": p.id}, {
                 "status": p.status, "score": p.score, "detail_level": rec["detail_level"],

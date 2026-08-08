@@ -19,6 +19,7 @@ class ProductBase(BaseModel):
     risk_words: Optional[str] = None
     score: Optional[float] = None
     status: Optional[str] = "待评估"
+    direction: Optional[str] = "manual"
     owner: Optional[str] = None
 
 

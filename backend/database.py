@@ -23,6 +23,7 @@ def get_db():
 def ensure_sqlite_columns():
     """为已有 SQLite 数据库补齐新增原型字段，避免手动删库。"""
     columns = {
+        "products": {"direction": "VARCHAR(20) DEFAULT 'manual'"},
         "contents": {"status": "VARCHAR(50) DEFAULT '待拆解'", "priority": "VARCHAR(20) DEFAULT 'P1'", "notes": "TEXT"},
         "scripts": {"title": "VARCHAR(200)", "owner": "VARCHAR(100)", "priority": "VARCHAR(20) DEFAULT 'P1'", "notes": "TEXT"},
         "videos": {"priority": "VARCHAR(20) DEFAULT 'P1'", "notes": "TEXT", "generate_task_id": "VARCHAR(100)", "generate_status": "VARCHAR(50)", "video_url": "TEXT", "script_title": "VARCHAR(200)", "product_id": "INTEGER", "product_name": "VARCHAR(200)"},

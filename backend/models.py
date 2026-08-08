@@ -23,6 +23,7 @@ class Product(Base):
     risk_words = Column(Text, comment="风险词")
     score = Column(Float, comment="选品评分")
     status = Column(String(50), default="待评估", comment="状态")
+    direction = Column(String(20), default="manual", comment="拆解方向：auto=智能体自动拆解+分镜，manual=视频拆解路线")
     owner = Column(String(100), comment="负责人")
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)

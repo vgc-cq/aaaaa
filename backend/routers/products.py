@@ -483,6 +483,26 @@ def create_product(product: ProductCreate, db: Session = Depends(get_db)):
     return db_product
 
 
+@router.post("/direction")
+def set_product_direction(data: dict = Body(...), db: Session = Depends(get_db)):
+    """设置商品拆解方向：auto=智能体自动拆解+分镜，manual=走人工视频拆解路线。"""
+    ids = data.get("product_ids") or []
+    direction = data.get("direction") or "auto"
+    if direction not in ("auto", "manual"):
+        raise HTTPException(status_code=400, detail="无效的拆解方向")
+    if not ids:
+        raise HTTPException(status_code=400, detail="请选择商品")
+    rows = db.query(Product).filter(Product.id.in_(ids)).all()
+    for p in rows:
+        p.direction = direction
+    db.commit()
+    # 勾选为 auto 后立即触发智能体，让这些商品进入自动拆解+分镜流水线
+    if direction == "auto" and rows:
+        from ai_workflow.product_agent import trigger_product_agent_background
+        trigger_product_agent_background()
+    return {"updated": len(rows), "direction": direction}
+
+
 @router.put("/{product_id:int}", response_model=ProductOut)
 def update_product(product_id: int, product: ProductCreate, db: Session = Depends(get_db)):
     db_product = db.query(Product).filter(Product.id == product_id).first()

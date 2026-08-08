@@ -299,7 +299,8 @@ const loadList = async () => {
 
 const loadProducts = async () => {
   const res = await productsApi.list({ limit: 500 })
-  productOptions.value = res.data
+  // 只展示"已选品 + 未勾选自动拆解"的商品——这些走人工视频拆解路线（待评估/已淘汰不出现）
+  productOptions.value = res.data.filter(p => p.status === '已选品' && p.direction !== 'auto')
 }
 
 const onProductChange = (id) => {
