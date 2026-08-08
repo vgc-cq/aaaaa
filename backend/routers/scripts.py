@@ -3,11 +3,28 @@ from sqlalchemy.orm import Session
 from typing import List
 from database import get_db
 import re
+import threading
 
 from models import Knowledge, Product, Script
 from schemas import ScriptCreate, ScriptOut
 
 router = APIRouter()
+
+# 防止同一拆解被并发重复生成：content_id -> 生成中锁
+_generate_guard = threading.Lock()
+_generate_locks: dict[int, threading.Lock] = {}
+
+
+def _acquire_generate_lock(content_id: int) -> bool:
+    """尝试获取该拆解的生成锁；已有请求正在生成则返回 False。"""
+    with _generate_guard:
+        lock = _generate_locks.setdefault(content_id, threading.Lock())
+    return lock.acquire(blocking=False)
+
+
+def _release_generate_lock(content_id: int) -> None:
+    with _generate_guard:
+        _generate_locks[content_id].release()
 
 
 @router.get("/", response_model=List[ScriptOut])
@@ -151,6 +168,15 @@ class ScriptGenerateIn(BaseModel):
 
 @router.post("/generate")
 def generate_script(data: ScriptGenerateIn, db: Session = Depends(get_db)):
+    if not _acquire_generate_lock(data.content_id):
+        raise HTTPException(status_code=409, detail="该拆解正在生成脚本中，请勿重复点击")
+    try:
+        return _do_generate_script(data, db)
+    finally:
+        _release_generate_lock(data.content_id)
+
+
+def _do_generate_script(data: ScriptGenerateIn, db: Session = Depends(get_db)):
     """基于内容拆解要点，调用 DeepSeek 生成秒级分镜脚本并写回脚本分镜表"""
     import os
 

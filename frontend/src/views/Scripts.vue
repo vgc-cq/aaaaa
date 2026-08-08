@@ -350,6 +350,7 @@ const onGenProductChange = () => {
 }
 
 const generateScript = async () => {
+  if (generating.value) return  // 防止快速连点触发并发重复生成
   if (!genContentId.value) {
     ElMessage.warning('请先选择关联商品和内容拆解记录')
     return
